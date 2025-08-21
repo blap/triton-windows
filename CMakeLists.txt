@@ -217,7 +217,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
     ${triton_plugins}
 
     # mlir
-    MLIRAMDGPUDialect
     MLIRNVVMDialect
     MLIRNVVMToLLVMIRTranslation
     MLIRGPUToNVVMTransforms
@@ -232,19 +231,27 @@ if(TRITON_BUILD_PYTHON_MODULE)
     MLIRSupport
     MLIRTargetLLVMIRExport
     MLIRMathToLLVM
-    MLIRROCDLToLLVMIRTranslation
     MLIRGPUDialect
     MLIRSCFToControlFlow
     MLIRIndexToLLVM
-    MLIRGPUToROCDLTransforms
     MLIRUBToLLVM
 
     # LLVM
     LLVMPasses
     LLVMNVPTXCodeGen
     # LLVMNVPTXAsmPrinter
-    LLVMAMDGPUCodeGen
-    LLVMAMDGPUAsmParser
+
+  )
+  if(TRITON_CODEGEN_BACKENDS MATCHES "amd")
+    list(APPEND TRITON_LIBRARIES
+      MLIRAMDGPUDialect
+      MLIRROCDLToLLVMIRTranslation
+      MLIRGPUToROCDLTransforms
+      LLVMAMDGPUCodeGen
+      LLVMAMDGPUAsmParser
+    )
+  endif()
+  list(APPEND TRITON_LIBRARIES
 
     Python3::Module
     pybind11::headers

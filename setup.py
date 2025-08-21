@@ -642,7 +642,10 @@ def download_and_copy_dependencies():
     )
 
 
-backends = [*BackendInstaller.copy(["nvidia", "amd"]), *BackendInstaller.copy_externals()]
+active_backends = ["nvidia"]
+if check_env_flag("TRITON_BUILD_AMD"):
+    active_backends.append("amd")
+backends = [*BackendInstaller.copy(active_backends), *BackendInstaller.copy_externals()]
 
 
 def get_package_dirs():
