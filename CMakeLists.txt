@@ -240,8 +240,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
     LLVMPasses
     LLVMNVPTXCodeGen
     # LLVMNVPTXAsmPrinter
-
   )
+
   if(TRITON_CODEGEN_BACKENDS MATCHES "amd")
     list(APPEND TRITON_LIBRARIES
       MLIRAMDGPUDialect
@@ -251,12 +251,12 @@ if(TRITON_BUILD_PYTHON_MODULE)
       LLVMAMDGPUAsmParser
     )
   endif()
-  list(APPEND TRITON_LIBRARIES
 
+  list(APPEND TRITON_LIBRARIES
     Python3::Module
     pybind11::headers
-
   )
+
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR # Linux arm64
      CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR # macOS arm64
      CMAKE_OSX_ARCHITECTURES MATCHES "arm64")  # also macOS arm64
