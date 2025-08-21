@@ -642,9 +642,13 @@ def download_and_copy_dependencies():
     )
 
 
-active_backends = ["nvidia"]
-if check_env_flag("TRITON_BUILD_AMD"):
-    active_backends.append("amd")
+active_backends = []
+codegen_backends_env = os.getenv("TRITON_CODEGEN_BACKENDS")
+if codegen_backends_env:
+    active_backends = [s.strip() for s in codegen_backends_env.split(';')]
+else:
+    # Default to both if not set
+    active_backends = ["nvidia", "amd"]
 backends = [*BackendInstaller.copy(active_backends), *BackendInstaller.copy_externals()]
 
 
