@@ -602,8 +602,8 @@ def download_and_copy_dependencies():
                 name="nvidia/cupti-" + NVIDIA_TOOLCHAIN_VERSION["cupti"],
                 # On Windows, each version of CUPTI has a specific DLL name. Remember to update this with `nvidia-toolchain-version.json`.
                 src_func=lambda system, arch, version:
-                f"cuda_cupti-{system}-{arch}-{version}-archive/lib/cupti64_2025.1.1.dll",
-                dst_path="third_party/nvidia/backend/lib/cupti/cupti64_2025.1.1.dll",
+                f"cuda_cupti-{system}-{arch}-{version}-archive/lib/cupti64_2025.2.1.dll",
+                dst_path="third_party/nvidia/backend/lib/cupti/cupti64_2025.2.1.dll",
                 variable="TRITON_CUPTI_LIB_PATH",
                 version=NVIDIA_TOOLCHAIN_VERSION["cupti"],
                 url_func=lambda system, arch, version:
