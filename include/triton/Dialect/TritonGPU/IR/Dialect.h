@@ -47,14 +47,21 @@ constexpr static char AttrTargetName[] = "ttg.target";
 constexpr static char AttrNumThreadsPerWarp[] = "ttg.threads-per-warp";
 
 // Find the contextual number of warps on which this operation is executed.
+// Returns 0 if a warp size cannot be found.
 int lookupNumWarps(Operation *op);
 // Try to find the contextual number of warps on which this operation is
 // executed. Returns nullopt if a warp size cannot be find. This is used for
 // verifiers.
 std::optional<int> maybeLookupNumWarps(Operation *op);
 
-// FIXME: Make this API and that of maybeLookupNumWarps consistent!
-// Utility to find the number of threads per warp
+// Find the contextual number of threads per warp.
+int lookupThreadsPerWarp(Operation *op);
+// Try to find the contextual number of threads per warp.
+// Returns nullopt if threads per warp cannot be found.
+std::optional<int> maybeLookupThreadsPerWarp(Operation *op);
+
+// Utility to find the number of threads per warp (deprecated, use lookupThreadsPerWarp instead)
+// FIXME: Remove this function once all uses are updated
 int lookupThreadsPerWarp(OpBuilder &rewriter);
 
 template <typename Key, typename Value> class Cache {

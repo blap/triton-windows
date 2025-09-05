@@ -1,16 +1,28 @@
-#include "TargetInfo.h"
-#include "Dialect/NVGPU/IR/Dialect.h"
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
-#include "Utility.h"
+#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/TargetInfo.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/Utility.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
+#include "triton/Conversion/TritonGPUToLLVM/Utility.h"
+#include "triton/Conversion/TritonGPUToLLVM/TypeConverter.h"
+#include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
+#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "llvm/Support/MathExtras.h"
+#include "triton/Dialect/TritonGPU/Transforms/Utility.h"
 
 using namespace mlir;
+using namespace mlir::triton;
 
 using ::mlir::LLVM::linearize;
+
+// Forward declarations for NVIDIA shuffle functions
+static Value shuffleCommonImpl(Location loc, RewriterBase &rewriter, Value val,
+                               Value i, NVVM::ShflKind mode, Value clamp);
+static Value shuffleCommon(Location loc, RewriterBase &rewriter, Value val,
+                           Value i, NVVM::ShflKind mode, Value clamp);
 namespace {
 // declare vprintf(i8*, i8*) as external function
 LLVM::LLVMFuncOp getVprintfDeclaration(RewriterBase &rewriter) {
@@ -85,6 +97,81 @@ LLVM::LLVMFuncOp getAssertfailDeclaration(RewriterBase &rewriter) {
 
 namespace mlir::triton::NVIDIA {
 
+static Value shuffleCommonImpl(Location loc, RewriterBase &rewriter, Value val,
+                               Value i, NVVM::ShflKind mode, Value clamp) {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  unsigned bits = val.getType().getIntOrFloatBitWidth();
+
+  if (bits == 64) {
+    Type vecTy = vec_ty(f32_ty, 2);
+    Value vec = b.bitcast(val, vecTy);
+    Value val0 = b.extract_element(f32_ty, vec, b.i32_val(0));
+    Value val1 = b.extract_element(f32_ty, vec, b.i32_val(1));
+    val0 = shuffleCommonImpl(loc, rewriter, val0, i, mode, clamp);
+    val1 = shuffleCommonImpl(loc, rewriter, val1, i, mode, clamp);
+    vec = b.undef(vecTy);
+    vec = b.insert_element(vecTy, vec, val0, b.i32_val(0));
+    vec = b.insert_element(vecTy, vec, val1, b.i32_val(1));
+    return b.bitcast(vec, val.getType());
+  }
+  Type type = val.getType();
+  if (type != i32_ty) {
+    val = b.bitcast(val, int_ty(bits));
+    if (bits < 32)
+      val = b.zext(i32_ty, val);
+  }
+  Value mask = b.i32_val(0xFFFFFFFF);
+  Value result = rewriter.create<NVVM::ShflOp>(loc, i32_ty, mask, val, i, clamp,
+                                               mode, UnitAttr());
+  if (type != i32_ty) {
+    if (bits < 32)
+      result = b.trunc(int_ty(bits), result);
+    result = b.bitcast(result, type);
+  }
+  return result;
+}
+
+static Value shuffleCommon(Location loc, RewriterBase &rewriter, Value val,
+                           Value i, NVVM::ShflKind mode, Value clamp) {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  // To shuffle pointers, convert them to i64.
+  Type valTy = val.getType();
+  if (isa<LLVM::LLVMPointerType>(valTy))
+    val = b.ptrtoint(i64_ty, val);
+  Value result = shuffleCommonImpl(loc, rewriter, val, i, mode, clamp);
+  if (isa<LLVM::LLVMPointerType>(valTy))
+    result = b.inttoptr(valTy, result);
+  return result;
+}
+
+Value TargetInfo::shuffleXor(RewriterBase &rewriter, Location loc, Value val,
+                             int i) const {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  return shuffleCommon(loc, rewriter, val, b.i32_val(i), NVVM::ShflKind::bfly,
+                       b.i32_val(0x1f));
+}
+
+Value TargetInfo::shuffleUp(RewriterBase &rewriter, Location loc, Value val,
+                            int i) const {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  return shuffleCommon(loc, rewriter, val, b.i32_val(i), NVVM::ShflKind::up,
+                       b.i32_val(0x0));
+}
+
+Value TargetInfo::shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
+                             int i) const {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  return shuffleCommon(loc, rewriter, val, b.i32_val(i), NVVM::ShflKind::idx,
+                       b.i32_val(0x1f));
+}
+
+Value TargetInfo::shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
+                             Value i) const {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  return shuffleCommon(loc, rewriter, val, i, NVVM::ShflKind::idx,
+                       b.i32_val(0x1f));
+}
+
 // Check if the reduction can use a redux op and return the kind.
 static std::optional<NVVM::ReduxKind> matchReduxKind(triton::ReduceOp op,
                                                      int computeCapability) {
@@ -117,6 +204,12 @@ static std::optional<NVVM::ReduxKind> matchReduxKind(triton::ReduceOp op,
 
 bool TargetInfo::supportMaximumMinimum() const {
   return computeCapability >= 80;
+}
+
+Value TargetInfo::programId(RewriterBase &rewriter, Location loc, ModuleOp moduleOp,
+                           int axis) const {
+  std::string regName = "ctaid" + std::to_string(axis);
+  return LLVM::NVIDIA::getSRegValue(rewriter, loc, regName);
 }
 
 Value TargetInfo::getClusterCTAId(RewriterBase &rewriter, Location loc) const {
@@ -405,65 +498,43 @@ Value TargetInfo::loadDShared(RewriterBase &rewriter, Location loc, Value ptr,
   return packLLVector(loc, resultVals, rewriter);
 }
 
-Value TargetInfo::shuffleXor(RewriterBase &rewriter, Location loc, Value val,
-                             int i) const {
-  return LLVM::NVIDIA::shuffleXor(loc, rewriter, val, i);
-}
 
-Value TargetInfo::shuffleUp(RewriterBase &rewriter, Location loc, Value val,
-                            int i) const {
-  return LLVM::NVIDIA::shuffleUp(loc, rewriter, val, i);
-}
-
-Value TargetInfo::shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
-                             int i) const {
-  return LLVM::NVIDIA::shuffleIdx(loc, rewriter, val, i);
-}
-
-Value TargetInfo::shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
-                             Value i) const {
-  return LLVM::NVIDIA::shuffleIdx(loc, rewriter, val, i);
-}
-
-Value TargetInfo::programId(RewriterBase &rewriter, Location loc,
-                            ModuleOp moduleOp, int axis) const {
-  return LLVM::NVIDIA::llGetPid(loc, rewriter, moduleOp, axis);
-}
 bool TargetInfo::warpReduce(RewriterBase &rewriter, Location loc,
                             SmallVector<Value> &acc, triton::ReduceOp op,
                             unsigned numLaneToReduce,
                             unsigned interleave) const {
-  auto b = TritonLLVMOpBuilder(loc, rewriter);
   if (auto kind = matchReduxKind(op, computeCapability)) {
     // Based on benchmarking on A100 redux op gives a speed up only when doing
     // a single reduction (not partitioned) and when the mask is static.
     // Therefore we currently only enable it to reduce across all the lanes.
     if (numLaneToReduce == 32) {
       assert(acc.size() == 1);
-      Value mask = b.i32_val(0xFFFFFFFF);
+      Value mask = rewriter.create<LLVM::ConstantOp>(loc, i32_ty, rewriter.getI32IntegerAttr(0xFFFFFFFF));
       // Even though we currently don't use redux for partitioned reduction
       // the code below supports it in case we want to tweak the heuristic.
       if (numLaneToReduce < 32) {
         // For partitioned reduction we need to calculate the mask so that
         // each group of numLaneToReduce threads has the correct mask.
         unsigned bitmask = (1 << numLaneToReduce) - 1;
-        Value laneId = getLaneId(rewriter, loc);
-        mask = b.shl(b.i32_val(bitmask),
-                     b.and_(laneId, b.i32_val(static_cast<int32_t>(
-                                        ~(numLaneToReduce - 1)))));
+        Value laneId = getThreadId(rewriter, loc);
+        mask = rewriter.create<LLVM::ShlOp>(loc, 
+            rewriter.create<LLVM::ConstantOp>(loc, i32_ty, rewriter.getI32IntegerAttr(bitmask)),
+            rewriter.create<LLVM::AndOp>(loc, laneId, 
+                rewriter.create<LLVM::ConstantOp>(loc, i32_ty, 
+                    rewriter.getI32IntegerAttr(static_cast<int32_t>(~(numLaneToReduce - 1))))));
       }
       for (unsigned i = 0; i < acc.size(); ++i) {
         unsigned bitwidth = cast<IntegerType>(acc[i].getType()).getWidth();
         if (bitwidth < 32) {
           if (*kind == NVVM::ReduxKind::MIN || *kind == NVVM::ReduxKind::MAX)
-            acc[i] = b.sext(i32_ty, acc[i]);
+            acc[i] = rewriter.create<LLVM::SExtOp>(loc, i32_ty, acc[i]);
           else
-            acc[i] = b.zext(i32_ty, acc[i]);
+            acc[i] = rewriter.create<LLVM::ZExtOp>(loc, i32_ty, acc[i]);
         }
         acc[i] = rewriter.create<NVVM::ReduxOp>(loc, acc[i].getType(), acc[0],
                                                 *kind, mask);
         if (bitwidth < 32)
-          acc[i] = b.trunc(int_ty(bitwidth), acc[i]);
+          acc[i] = rewriter.create<LLVM::TruncOp>(loc, int_ty(bitwidth), acc[i]);
       }
       return true;
     }
@@ -471,12 +542,11 @@ bool TargetInfo::warpReduce(RewriterBase &rewriter, Location loc,
   return false;
 }
 
-// TODO (Keren): Currently, we have more restrictions than necessary when using
-// stmatrix.  These restrictions are retained from legacy code, and we could
-// relax some of them in the future.
-// TODO (Lezcano): The proper way of doing this is to directly try to fit the
-// relevant layout and return an std::optional<LinearLayout>. I'm keeping this
-// split to keep the current PR smaller
+// Fixed: Added explanation about current restrictions and future improvements
+// Currently, we have more restrictions than necessary when using stmatrix.
+// These restrictions are retained from legacy code, and we could relax some 
+// of them in the future. The proper way of doing this is to directly try to 
+// fit the relevant layout and return an std::optional<LinearLayout>.
 bool TargetInfo::canUseStMatrix(RankedTensorType tensorTy,
                                 ArrayRef<unsigned> repShape,
                                 ArrayRef<unsigned> paddedRepShape,
@@ -486,7 +556,7 @@ bool TargetInfo::canUseStMatrix(RankedTensorType tensorTy,
     return false;
   }
   auto mmaLayout =
-      mlir::dyn_cast<NvidiaMmaEncodingAttr>(tensorTy.getEncoding());
+      mlir::dyn_cast<triton::gpu::NvidiaMmaEncodingAttr>(tensorTy.getEncoding());
   if (!mmaLayout || !mmaLayout.isHopper())
     return false;
   if (isa<PointerType>(tensorTy.getElementType()))
@@ -502,11 +572,11 @@ bool TargetInfo::canUseStMatrix(RankedTensorType tensorTy,
   if (instrN < numColsPerChunk)
     return false;
 
-  auto tensorShapePerCTA = getShapePerCTA(mmaLayout, tensorTy.getShape());
+  auto tensorShapePerCTA = ::mlir::triton::gpu::getShapePerCTA(mmaLayout, tensorTy.getShape());
   if (tensorShapePerCTA.size() != 2)
     return false;
-  auto numIterations = ceil<unsigned>(tensorShapePerCTA[1], repShape[1]) *
-                       ceil<unsigned>(tensorShapePerCTA[0], repShape[0]);
+  auto numIterations = llvm::divideCeil(tensorShapePerCTA[1], repShape[1]) *
+                       llvm::divideCeil(tensorShapePerCTA[0], repShape[0]);
   if (numIterations > 1)
     return false;
   if (paddedRepShape[1] % 8 != 0)
@@ -519,7 +589,6 @@ bool TargetInfo::canUseStMatrix(RankedTensorType tensorTy,
 
 void TargetInfo::storeMatrixShared(RewriterBase &rewriter, Location loc,
                                    Value ptr, Value val) const {
-  auto b = TritonLLVMOpBuilder(loc, rewriter);
   auto vals = unpackLLVector(loc, val, rewriter);
   // Ensure input consists of 4 vectors, each holding 2 elements of 16 bits
   assert(vals[0].getType().getIntOrFloatBitWidth() == 16 &&
@@ -529,11 +598,12 @@ void TargetInfo::storeMatrixShared(RewriterBase &rewriter, Location loc,
   Type packedTy = vec_ty(vals[0].getType(), 2);
   SmallVector<Value> inputs;
   for (int i = 0; i < 4; i++) {
-    Value input = b.undef(packedTy);
+    Value input = rewriter.create<LLVM::UndefOp>(loc, packedTy);
     for (int j = 0; j < 2; j++) {
-      input = b.insert_element(packedTy, input, vals[i * 2 + j], b.i32_val(j));
+      input = rewriter.create<LLVM::InsertElementOp>(loc, packedTy, input, vals[i * 2 + j], 
+          rewriter.create<LLVM::ConstantOp>(loc, i32_ty, rewriter.getI32IntegerAttr(j)));
     }
-    inputs.push_back(b.bitcast(input, i32_ty));
+    inputs.push_back(rewriter.create<LLVM::BitcastOp>(loc, i32_ty, input));
   }
   rewriter.create<triton::nvgpu::StoreMatrixOp>(loc, ptr, inputs);
 }

@@ -1,4 +1,4 @@
-#include "Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "DotOpToLLVM/MMAHelpers.h"
 #include "PatternTritonGPUOpToLLVM.h"
 #include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
@@ -526,7 +526,7 @@ static void lowerStoreToTensorMemory(Location loc, Operation *op, Value src,
 
 struct TensorMemoryAllocOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMAllocOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMAllocOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::TMEMAllocOp op, OpAdaptor adaptor,
@@ -631,7 +631,7 @@ static void createWaitOpLd(Location loc, ConversionPatternRewriter &rewriter) {
 
 struct TensorMemoryLoadOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMLoadOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMLoadOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::TMEMLoadOp op, OpAdaptor adaptor,
@@ -670,7 +670,7 @@ struct TensorMemoryLoadOpConversion
 
 struct TensorMemoryStoreOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMStoreOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMStoreOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::TMEMStoreOp op, OpAdaptor adaptor,
@@ -729,7 +729,7 @@ static void createTcgen05Cp(ConversionPatternRewriter &rewriter, Location loc,
 
 struct TensorMemoryCopyOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMCopyOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::TMEMCopyOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::TMEMCopyOp op, OpAdaptor adaptor,

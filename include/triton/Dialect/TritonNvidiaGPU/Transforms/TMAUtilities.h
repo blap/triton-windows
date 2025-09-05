@@ -1,4 +1,8 @@
 #pragma once
+#include "mlir/IR/Types.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"
@@ -6,7 +10,29 @@
 #include "triton/Dialect/TritonGPU/IR/TritonGPUInterfaces.h"
 #include "llvm/Support/Casting.h"
 
-namespace mlir::triton::nvidia_gpu {
+// Add missing namespace declarations
+namespace mlir {
+class Value;
+class Operation;
+class OpBuilder;
+class Location;
+class Attribute;
+namespace triton {
+namespace gpu {
+class CTALayoutAttr;
+class SharedEncodingTrait;
+} // namespace gpu
+} // namespace triton
+} // namespace mlir
+
+// Add missing type declarations
+using namespace mlir;
+using namespace mlir::triton;
+using namespace mlir::triton::gpu;
+
+namespace mlir {
+namespace triton {
+namespace nvidia_gpu {
 
 constexpr inline int TMA_SIZE_BYTES = 128;
 constexpr inline int TMA_ALIGN = 128;
@@ -64,4 +90,6 @@ std::optional<int> getTMAElementType(Operation *op, TensorDescType ty);
 LogicalResult createTMADesc(Value tmaPtr, MakeTensorDescOp op,
                             OpBuilder &builder);
 
-} // namespace mlir::triton::nvidia_gpu
+} // namespace nvidia_gpu
+} // namespace triton
+} // namespace mlir

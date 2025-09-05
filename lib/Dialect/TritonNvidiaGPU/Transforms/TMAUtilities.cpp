@@ -4,7 +4,9 @@
 namespace tt = mlir::triton;
 namespace ttg = mlir::triton::gpu;
 
-namespace mlir::triton::nvidia_gpu {
+namespace mlir {
+namespace triton {
+namespace nvidia_gpu {
 
 SmallVector<Value> translateTMAIndices(OpBuilder &builder, Location loc,
                                        Attribute encoding,
@@ -316,4 +318,6 @@ LogicalResult createTMADesc(Value tmaPtr, MakeTensorDescOp op,
   return success();
 }
 
-} // namespace mlir::triton::nvidia_gpu
+} // namespace nvidia_gpu
+} // namespace triton
+} // namespace mlir

@@ -1,6 +1,6 @@
-#include "Dialect/NVGPU/IR/Dialect.h"
-#include "TritonNVIDIAGPUToLLVM/Passes.h"
-#include "TritonNVIDIAGPUToLLVM/Utility.h"
+#include "nvidia/include/Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Passes.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
@@ -22,12 +22,15 @@
 #include "triton/Conversion/TritonGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton/Conversion/TritonGPUToLLVM/TypeConverter.h"
 
+#ifdef TRITON_BUILD_PROTON
 #include "third_party/proton/dialect/include/TritonProtonToLLVM/PatternTritonProtonOpToLLVM.h"
+#endif
 
 namespace mlir {
 namespace triton {
 #define GEN_PASS_DEF_CONVERTTRITONGPUTOLLVM
-#include "TritonNVIDIAGPUToLLVM/Passes.h.inc"
+// Fixed path to reference the correct location of Passes.h.inc in build directory
+#include "nvidia/include/TritonNVIDIAGPUToLLVM/Passes.h.inc"
 } // namespace triton
 } // namespace mlir
 
@@ -42,6 +45,7 @@ public:
       : ConversionTarget(ctx) {
     addLegalDialect<LLVM::LLVMDialect>();
     addLegalDialect<NVVM::NVVMDialect>();
+    addIllegalDialect<triton::TritonDialect>();
     addLegalOp<mlir::UnrealizedConversionCastOp>();
   }
 };
@@ -138,8 +142,10 @@ struct ConvertTritonGPUToLLVM
                                                     targetInfo, benefit);
     mlir::triton::populatePrintOpToLLVMPattern(typeConverter, patterns,
                                                targetInfo, benefit);
+#ifdef TRITON_BUILD_PROTON
     mlir::triton::proton::populateRecordOpToLLVMPattern(typeConverter, patterns,
                                                         targetInfo, benefit);
+#endif
     mlir::triton::populateControlFlowOpToLLVMPattern(typeConverter, patterns,
                                                      targetInfo, benefit);
     mlir::triton::NVIDIA::populateSPMDOpToLLVMPattern(typeConverter, patterns,

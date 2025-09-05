@@ -79,13 +79,52 @@ void SharedMemoryAliasAnalysis::visitNonControlFlowArguments(
 }
 
 AliasResult SharedMemoryAliasAnalysis::alias(Value lhs, Value rhs) {
-  // TODO: implement
-  return AliasResult::MayAlias;
+  // Get the lattice elements for both values
+  dataflow::Lattice<AliasInfo> *lhsLattice = getLatticeElement(lhs);
+  dataflow::Lattice<AliasInfo> *rhsLattice = getLatticeElement(rhs);
+  
+  // If we don't have lattice information for either value, conservatively assume they may alias
+  if (!lhsLattice || !rhsLattice) {
+    return AliasResult::MayAlias;
+  }
+  
+  // Get the alias information from the lattice elements
+  const AliasInfo &lhsInfo = lhsLattice->getValue();
+  const AliasInfo &rhsInfo = rhsLattice->getValue();
+  
+  // If either value has no allocs (pessimistic state), conservatively assume they may alias
+  if (lhsInfo.getAllocs().empty() || rhsInfo.getAllocs().empty()) {
+    return AliasResult::MayAlias;
+  }
+  
+  // Check if they share any common allocations
+  for (const auto &lhsAlloc : lhsInfo.getAllocs()) {
+    for (const auto &rhsAlloc : rhsInfo.getAllocs()) {
+      if (lhsAlloc == rhsAlloc) {
+        return AliasResult::MustAlias;
+      }
+    }
+  }
+  
+  // If no common allocations, they don't alias
+  return AliasResult::NoAlias;
 }
 
 ModRefResult SharedMemoryAliasAnalysis::getModRef(Operation *op,
                                                   Value location) {
-  // TODO: implement
+  // For now, we conservatively assume that any operation that has a MemDescViewTrait
+  // might modify or reference the location
+  if (op->hasTrait<OpTrait::MemDescViewTrait>()) {
+    return ModRefResult::getModAndRef();
+  }
+  
+  // LocalAllocOp creates a new buffer, so it doesn't reference existing locations
+  // but it might modify the location if it's being assigned to
+  if (isa<triton::gpu::LocalAllocOp>(op)) {
+    return ModRefResult::getMod();
+  }
+  
+  // For other operations, conservatively assume they might modify and reference
   return ModRefResult::getModAndRef();
 }
 

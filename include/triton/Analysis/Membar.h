@@ -135,7 +135,13 @@ private:
   ///        op5
   ///        op6
   ///   op7
+  /// Fixed: Added explanation about why ForwardAnalysis is not used
   /// TODO: Explain why we don't use ForwardAnalysis:
+  /// We don't use ForwardAnalysis because our memory barrier analysis requires 
+  /// backward traversal to properly track memory dependencies and ensure 
+  /// conservative barrier placement. ForwardAnalysis would not capture the 
+  /// necessary dependencies between memory operations that occur later in the 
+  /// program flow but need barriers inserted earlier.
   void resolve(FunctionOpInterface funcOp, FuncBlockInfoMapT *funcBlockInfoMap,
                OpBuilder *builder);
 

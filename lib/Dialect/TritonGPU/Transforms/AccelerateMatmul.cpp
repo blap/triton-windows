@@ -305,6 +305,15 @@ public:
   mlir::LogicalResult
   matchAndRewrite(triton::DotOp dotOp,
                   mlir::PatternRewriter &rewriter) const override {
+    // For sm61 (compute capability 61), always fall back to FMA path
+    // instead of trying to use MMA which is not supported
+    if (computeCapability <= 61) {
+      dotOp.emitRemark()
+          << "Dot op on compute capability " << computeCapability
+          << " falls back to FMA path for Pascal GPU support.";
+      return failure();
+    }
+    
     if (computeCapability < 70)
       return failure();
     if (computeCapability < 80) {
@@ -441,6 +450,29 @@ replaceCTALayout(DistributedEncodingTrait layout,
     return SliceEncodingAttr::get(
         layout.getContext(), sliceLayout.getDim(),
         replaceCTALayout(sliceLayout.getParent(), newCTALayout));
+  } else if (auto mmaLayout = mlir::dyn_cast<NvidiaMmaEncodingAttr>(layout)) {
+    return NvidiaMmaEncodingAttr::get(
+        layout.getContext(), mmaLayout.getVersionMajor(),
+        mmaLayout.getVersionMinor(), mmaLayout.getWarpsPerCTA(), newCTALayout,
+        mmaLayout.getInstrShape());
+  } else if (auto mfmaLayout = mlir::dyn_cast<AMDMfmaEncodingAttr>(layout)) {
+    return AMDMfmaEncodingAttr::get(
+        layout.getContext(), mfmaLayout.getVersionMajor(),
+        mfmaLayout.getVersionMinor(), mfmaLayout.getWarpsPerCTA(),
+        mfmaLayout.getMDim(), mfmaLayout.getNDim(),
+        mfmaLayout.getIsTransposed(), newCTALayout);
+  } else if (auto wmmaLayout = mlir::dyn_cast<AMDWmmaEncodingAttr>(layout)) {
+    return AMDWmmaEncodingAttr::get(
+        layout.getContext(), wmmaLayout.getVersion(),
+        wmmaLayout.getIsTransposed(), wmmaLayout.getWarpsPerCTA(),
+        newCTALayout);
+  } else if (auto linearLayout = mlir::dyn_cast<LinearEncodingAttr>(layout)) {
+    // For LinearEncodingAttr, we need to create a new one with the updated CTALayout
+    // LinearEncodingAttr doesn't directly store CTALayout, but we can create a new
+    // LinearLayout with the updated CTALayout and create a new LinearEncodingAttr
+    auto ll = linearLayout.getLinearLayout();
+    return linearLayout; // For now, just return the original as LinearEncodingAttr 
+                         // doesn't have a direct way to update CTALayout
   } else {
     llvm::report_fatal_error("not implemented");
     return layout;
@@ -770,6 +802,52 @@ static Value promoteOperand(OpBuilder &builder, Location loc, Value operand,
 // supported.
 static void decomposeMixedModeDotOp(ModuleOp mod, int computeCapability) {
   mod.walk([=](DotOp dotOp) -> void {
+    // For sm61, ensure proper operand promotion for dot operations
+    if (computeCapability <= 61) {
+      // Always promote operands for sm61 to ensure compatibility
+      auto D = dotOp.getD();
+      OpBuilder builder(dotOp);
+      Type AElType = dotOp.getA().getType().getElementType();
+      Type BElType = dotOp.getB().getType().getElementType();
+      Type DElType = D.getType().getElementType();
+      
+      // If any operand is int8, promote all to int32 for FMA compatibility
+      if (AElType.isInteger(8) || BElType.isInteger(8)) {
+        Location loc = dotOp.getLoc();
+        Type promoteType = builder.getIntegerType(32);
+        Value promotedA = promoteOperand(builder, loc, dotOp.getA(), promoteType);
+        Value promotedB = promoteOperand(builder, loc, dotOp.getB(), promoteType);
+        Value promotedC = promoteOperand(builder, loc, dotOp.getC(), promoteType);
+        
+        auto newDotOp = builder.create<DotOp>(
+            loc, dotOp.getResult().getType(), promotedA, promotedB, promotedC,
+            dotOp.getInputPrecision(), dotOp.getMaxNumImpreciseAcc());
+        dotOp.replaceAllUsesWith(newDotOp.getResult());
+        dotOp.erase();
+        return;
+      }
+      
+      // For fp16 operands on sm61, promote to fp32 for better compatibility
+      if (AElType.isF16() || BElType.isF16()) {
+        Location loc = dotOp.getLoc();
+        Type promoteType = builder.getF32Type();
+        Value promotedA = promoteOperand(builder, loc, dotOp.getA(), promoteType);
+        Value promotedB = promoteOperand(builder, loc, dotOp.getB(), promoteType);
+        Value promotedC = promoteOperand(builder, loc, dotOp.getC(), promoteType);
+        
+        auto newDotOp = builder.create<DotOp>(
+            loc, dotOp.getResult().getType(), promotedA, promotedB, promotedC,
+            dotOp.getInputPrecision(), dotOp.getMaxNumImpreciseAcc());
+        dotOp.replaceAllUsesWith(newDotOp.getResult());
+        dotOp.erase();
+        return;
+      }
+      
+      // If types already match, no promotion needed
+      if (AElType == BElType && AElType == DElType)
+        return;
+    }
+    
     auto D = dotOp.getD();
     OpBuilder builder(dotOp);
     Type AElType = dotOp.getA().getType().getElementType();
@@ -795,8 +873,13 @@ static void decomposeMixedModeDotOp(ModuleOp mod, int computeCapability) {
     Location loc = dotOp.getLoc();
     Value promotedA = promoteOperand(builder, loc, dotOp.getA(), promoteType);
     Value promotedB = promoteOperand(builder, loc, dotOp.getB(), promoteType);
-    dotOp.setOperand(0, promotedA);
-    dotOp.setOperand(1, promotedB);
+    Value promotedC = promoteOperand(builder, loc, dotOp.getC(), promoteType);
+    auto newDot = builder.create<DotOp>(loc, dotOp.getResult().getType(),
+                                        promotedA, promotedB, promotedC,
+                                        dotOp.getInputPrecision(),
+                                        dotOp.getMaxNumImpreciseAcc());
+    dotOp.replaceAllUsesWith(newDot.getResult());
+    dotOp.erase();
   });
 }
 

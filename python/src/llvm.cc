@@ -1,6 +1,11 @@
 ﻿#include "mlir/IR/BuiltinOps.h" // mlir::ModuleOp
 #include "mlir/Target/LLVMIR/LLVMTranslationInterface.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "triton/Tools/Sys/GetEnv.hpp"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/LLVMContext.h"
@@ -27,6 +32,7 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include <csignal>
 #include <memory>
+#include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <stdexcept>
@@ -35,8 +41,8 @@ namespace py = pybind11;
 
 namespace llvm {
 struct BreakStructPhiNodesPass : PassInfoMixin<BreakStructPhiNodesPass> {
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  static StringRef name() { return "BreakStructPhiNodesPass"; }
+  PreservedAnalyses run(llvm::Function &F, llvm::FunctionAnalysisManager &AM);
+  static llvm::StringRef name() { return "BreakStructPhiNodesPass"; }
 };
 } // namespace llvm
 
@@ -282,7 +288,7 @@ void init_triton_llvm(py::module &&m) {
     llvm::TargetOptions opt;
     // Target machine is only used to create the data layout.
     std::unique_ptr<llvm::TargetMachine> machine{target->createTargetMachine(
-        llvm::Triple(triple), proc, features, opt, llvm::Reloc::PIC_,
+        Triple(triple), proc, features, opt, llvm::Reloc::PIC_,
         std::nullopt, llvm::CodeGenOptLevel::None)};
     // set data layout
     mod->setDataLayout(machine->createDataLayout());

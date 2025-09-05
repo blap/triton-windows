@@ -1,16 +1,27 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/IR/TypeUtilities.h"
 
-#include "PatternTritonGPUOpToLLVM.h"
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+// Fixed path to reference the correct location of PatternTritonGPUOpToLLVM.h
+#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
+// Fixed path to reference the correct location of PTXAsmFormat.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
 
 #include "mlir/IR/Value.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonNvidiaGPU/Transforms/TMAUtilities.h"
+#include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
 
-#include "Utility.h"
+// Fixed path to reference the correct location of Utility.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
+
+// Added missing headers for type definitions
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/Support/LogicalResult.h"
 
 using namespace mlir;
 using namespace mlir::triton;
@@ -183,14 +194,15 @@ void tensormap_replace_fill_mode(Location loc, MLIRContext *ctx,
 }
 
 struct TensormapFenceproxyAcquireOpConversion
-    : public ConvertOpToLLVMPattern<ttng::TensormapFenceproxyAcquireOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+    : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TensormapFenceproxyAcquireOp> {
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::TensormapFenceproxyAcquireOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
-  matchAndRewrite(ttng::TensormapFenceproxyAcquireOp op, OpAdaptor adaptor,
+  matchAndRewrite(triton::nvidia_gpu::TensormapFenceproxyAcquireOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
 
     auto loc = op.getLoc();
+    auto ctx = op.getContext();
     PTXBuilder ptxBuilder;
     auto b = TritonLLVMOpBuilder(loc, rewriter);
 
@@ -206,7 +218,7 @@ struct TensormapFenceproxyAcquireOpConversion
         *ptxBuilder.create<>("fence.proxy.tensormap::generic.acquire.gpu");
     fence(descAddrOpr, sizeOpr).predicate(pred);
 
-    ptxBuilder.launch(rewriter, loc, getVoidType());
+    ptxBuilder.launch(rewriter, loc, void_ty(ctx));
 
     // We run the fence on a single warp, then use a barrier to synchronize the
     // rest. This ends up being faster than running the fence on each warp.
@@ -235,7 +247,7 @@ void zero_fill_tma(Location loc, MLIRContext *ctx,
 }
 
 struct TensormapCreateOpConversion
-    : public ConvertOpToLLVMPattern<ttng::TensormapCreateOp> {
+    : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TensormapCreateOp> {
   const NVIDIA::TargetInfo &targetInfo;
 
   TensormapCreateOpConversion(LLVMTypeConverter &converter,
@@ -244,11 +256,11 @@ struct TensormapCreateOpConversion
       : ConvertOpToLLVMPattern(converter, benefit), targetInfo(targetInfo) {}
 
   LogicalResult
-  matchAndRewrite(ttng::TensormapCreateOp op, OpAdaptor adaptor,
+  matchAndRewrite(triton::nvidia_gpu::TensormapCreateOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     auto b = TritonLLVMOpBuilder(loc, rewriter);
-    auto ctx = getContext();
+    auto ctx = op.getContext();
 
     bool needsStrideWorkaround = targetInfo.getPtxVersion() <= 85;
     auto smemBase = LLVM::getSharedMemoryBase(loc, rewriter, targetInfo, op);
@@ -291,16 +303,16 @@ struct TensormapCreateOpConversion
 };
 
 struct ReinterpretTensorDescOpConversion
-    : public ConvertOpToLLVMPattern<ReinterpretTensorDescOp> {
+    : public ConvertOpToLLVMPattern<triton::nvidia_gpu::ReinterpretTensorDescOp> {
 
-  ReinterpretTensorDescOpConversion(LLVMTypeConverter &converter,
-                                    PatternBenefit benefit)
-      : ConvertOpToLLVMPattern(converter, benefit) {}
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::ReinterpretTensorDescOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
-  matchAndRewrite(ttng::ReinterpretTensorDescOp op, OpAdaptor adaptor,
+  matchAndRewrite(triton::nvidia_gpu::ReinterpretTensorDescOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Type resultType = getTypeConverter()->convertType(op.getType());
+    auto loc = op.getLoc();
+    auto typeConverter = getTypeConverter();
+    Type resultType = typeConverter->convertType(op.getType());
     rewriter.replaceOpWithNewOp<LLVM::AddrSpaceCastOp>(op, resultType,
                                                        adaptor.getRawDesc());
     return success();

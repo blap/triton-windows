@@ -17,13 +17,15 @@ include(CTest)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Options
-option(TRITON_BUILD_BINARY "Build C++ Triton binaries" ON)
-option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" OFF)
-option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" ON)
-option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
-option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
-set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
+# Options - Windows build configuration
+# Changed default values for Windows build optimization
+option(TRITON_BUILD_BINARY "Build C++ Triton binaries" OFF)
+option(TRITON_BUILD_PYTHON_MODULE "Build Python Triton bindings" ON)
+option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
+# Disabled unit tests and ccache by default for Windows build simplification
+option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
+option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" OFF)
+set(TRITON_CODEGEN_BACKENDS "nvidia" CACHE STRING "Enable different codegen backends")
 
 if(TRITON_BUILD_WITH_CCACHE)
   find_program(CCACHE_PROGRAM ccache)
@@ -52,15 +54,8 @@ endif()
 # used conditionally in this file and by lit tests
 
 # Customized release build type with assertions: TritonRelBuildWithAsserts
-if(NOT MSVC)
-  set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "-O2 -g")
-  set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "-O2 -g")
-  set(CMAKE_C_FLAGS_TRITONBUILDWITHO1 "-O1")
-  set(CMAKE_CXX_FLAGS_TRITONBUILDWITHO1 "-O1")
-else()
-  set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
-  set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
-endif()
+set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
+set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
 
 # Default build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -68,9 +63,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-if(NOT WIN32)
-  find_library(TERMINFO_LIBRARY tinfo)
-endif()
 
 if(TRITON_BUILD_UT)
   # This is an aggregate target for all unit tests.
@@ -81,11 +73,7 @@ endif()
 
 # Compiler flags
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_FORMAT_MACROS  -fPIC -std=gnu++17")
-else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8")
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8")
 
 
 # #########
@@ -139,11 +127,7 @@ endfunction()
 
 
 # Disable warnings that show up in external code (gtest;pybind11)
-if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-covered-switch-default -fvisibility=hidden")
-else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624")
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624")
 
 include_directories(".")
 include_directories(${MLIR_INCLUDE_DIRS})
@@ -152,17 +136,19 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include) # Tablegen'd files
 include_directories(${PROJECT_SOURCE_DIR}/third_party)
 include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
+# Add NVIDIA backend include paths
+include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)
+include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)
 
 # link_directories(${LLVM_LIBRARY_DIR})
 add_subdirectory(include)
+add_subdirectory(third_party/f2reduce)
 add_subdirectory(lib)
+
 
 # TODO: Figure out which target is sufficient to fix errors; triton is
 # apparently not enough. Currently set linking libstdc++fs for all targets
 # to support some old version GCC compilers like 8.3.0.
-if (NOT WIN32 AND NOT APPLE AND NOT BSD)
-  link_libraries(stdc++fs)
-endif()
 
 if(WIN32)
   add_subdirectory(third_party/dlfcn-win32)
@@ -204,162 +190,30 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   if (TRITON_BUILD_PROTON)
     add_subdirectory(third_party/proton)
+    # We always build proton dialect
+    list(APPEND TRITON_PLUGIN_NAMES "proton")
+    add_subdirectory(third_party/proton/dialect)
+    # Add preprocessor definition when Proton is enabled - Windows build enhancement
+    add_compile_definitions(TRITON_BUILD_PROTON)
   endif()
-  # We always build proton dialect
-  list(APPEND TRITON_PLUGIN_NAMES "proton")
-  add_subdirectory(third_party/proton/dialect)
 
   get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
   get_property(triton_plugins GLOBAL PROPERTY TRITON_PLUGINS)
   set(TRITON_LIBRARIES
     ${triton_libs}
-    ${triton_plugins}
-
-    # mlir
-    MLIRAMDGPUDialect
-    MLIRNVVMDialect
-    MLIRNVVMToLLVMIRTranslation
-    MLIRGPUToNVVMTransforms
-    MLIRGPUToGPURuntimeTransforms
-    MLIRGPUTransforms
-    MLIRIR
-    MLIRControlFlowToLLVM
-    MLIRBytecodeWriter
-    MLIRPass
-    MLIRTransforms
-    MLIRLLVMDialect
-    MLIRSupport
-    MLIRTargetLLVMIRExport
-    MLIRMathToLLVM
-    MLIRROCDLToLLVMIRTranslation
-    MLIRGPUDialect
-    MLIRSCFToControlFlow
-    MLIRIndexToLLVM
-    MLIRGPUToROCDLTransforms
-    MLIRUBToLLVM
-
-    # LLVM
-    LLVMPasses
-    LLVMNVPTXCodeGen
-    # LLVMNVPTXAsmPrinter
-    LLVMAMDGPUCodeGen
-    LLVMAMDGPUAsmParser
-
-    Python3::Module
-    pybind11::headers
-
-  )
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR # Linux arm64
-     CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR # macOS arm64
-     CMAKE_OSX_ARCHITECTURES MATCHES "arm64")  # also macOS arm64
-      list(APPEND TRITON_LIBRARIES
-          LLVMAArch64CodeGen
-          LLVMAArch64AsmParser
-      )
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
-      list(APPEND TRITON_LIBRARIES
-          LLVMX86CodeGen
-          LLVMX86AsmParser
-      )
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64le")
-      list(APPEND TRITON_LIBRARIES
-        LLVMPowerPCAsmParser
-        LLVMPowerPCCodeGen
-      )
-  else()
-    message(FATAL_ERROR "LLVM codegen/ASM parser libs: This HW architecture (${CMAKE_SYSTEM_PROCESSOR}) is not configured in cmake lib dependencies.")
-  endif()
-
-  # Define triton library
-  string(JOIN "," TRITON_BACKENDS_TUPLE ${TRITON_CODEGEN_BACKENDS})
-
-  if (DEFINED TRITON_PLUGIN_NAMES)
-    string(JOIN "," TRITON_BACKENDS_TUPLE ${TRITON_BACKENDS_TUPLE} ${TRITON_PLUGIN_NAMES})
-  endif()
-
-  message(STATUS "Triton backends tuple: ${TRITON_BACKENDS_TUPLE}")
-
-  set(TRITON_BACKENDS_TUPLE "(${TRITON_BACKENDS_TUPLE})")
-  add_compile_definitions(TRITON_BACKENDS_TUPLE=${TRITON_BACKENDS_TUPLE})
-  add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
-                  ${PYTHON_SRC_PATH}/ir.cc
-                  ${PYTHON_SRC_PATH}/gluon_ir.cc
-                  ${PYTHON_SRC_PATH}/passes.cc
-                  ${PYTHON_SRC_PATH}/interpreter.cc
-                  ${PYTHON_SRC_PATH}/llvm.cc)
-
-  # Link triton with its dependencies
-  target_link_libraries(triton PRIVATE ${TRITON_LIBRARIES})
-  if(WIN32)
-    target_link_libraries(triton PRIVATE ${CMAKE_DL_LIBS} dlfcn)
-    set_target_properties(triton PROPERTIES SUFFIX ".pyd")
-    set_target_properties(triton PROPERTIES PREFIX "lib")
-  else()
-    target_link_libraries(triton PRIVATE z)
-  endif()
-  target_link_options(triton PRIVATE ${LLVM_LDFLAGS})
-
-  if (NOT DEFINED LLVM_SYSPATH)
-      message(FATAL_ERROR "LLVM_SYSPATH must be set.")
-  endif()
-
-  if (NOT DEFINED TRITON_WHEEL_DIR)
-      message(FATAL_ERROR "TRITON_WHEEL_DIR must be set.")
-  endif()
-
-  if(TRITON_BUILD_UT)
-    if(WIN32)
-      configure_file(
-        "${LLVM_SYSPATH}/bin/FileCheck.exe"
-        "${TRITON_WHEEL_DIR}/FileCheck.exe"
-        COPYONLY)
-    else()
-      configure_file(
-        "${LLVM_SYSPATH}/bin/FileCheck"
-        "${TRITON_WHEEL_DIR}/FileCheck"
-        COPYONLY)
-    endif()
-  endif()
+    ${triton_plugins})
 
 endif()
 
-if (UNIX AND NOT APPLE)
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL")
-endif()
-
-if(TRITON_BUILD_PYTHON_MODULE AND NOT WIN32)
-  set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
-
-  # Check if the platform is MacOS
-  if(APPLE)
-    set(PYTHON_LDFLAGS "-undefined dynamic_lookup")
-  endif()
-
-  target_link_options(triton PRIVATE ${PYTHON_LDFLAGS})
-endif()
-
-if(NOT TRITON_BUILD_PYTHON_MODULE)
-  foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
-    add_subdirectory(third_party/${CODEGEN_BACKEND})
-  endforeach()
-  add_subdirectory(third_party/proton/dialect)
-endif()
-
-find_package(Threads REQUIRED)
-
-add_subdirectory(third_party/f2reduce)
+# set_target_properties(triton PROPERTIES
+  # LINKER_LANGUAGE CXX
+  # OUTPUT_NAME triton
+  # )
 
 if(TRITON_BUILD_BINARY)
   add_subdirectory(bin)
 endif()
 
 if(TRITON_BUILD_UT)
-  add_subdirectory(test)
   add_subdirectory(unittest)
-  # This target runs all the unit tests.
-  add_custom_target(check-triton-unit-tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS TritonUnitTests
-    USES_TERMINAL
-  )
 endif()

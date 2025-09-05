@@ -4,7 +4,8 @@ get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
 
 add_llvm_executable(triton-opt triton-opt.cpp PARTIAL_SOURCES_INTENDED)
 
-# TODO: what's this?
+# Fixed: llvm_update_compile_flags updates the compile flags for the target 
+# to ensure proper compilation with LLVM's requirements
 llvm_update_compile_flags(triton-opt)
 target_link_libraries(triton-opt PRIVATE
   ${dialect_libs}
@@ -13,7 +14,6 @@ target_link_libraries(triton-opt PRIVATE
   # tests
   TritonTestAnalysis
   TritonTestDialect
-  TritonAMDGPUTestAnalysis
   # MLIR core
   MLIROptLib
   MLIRPass
@@ -33,7 +33,6 @@ target_link_libraries(triton-reduce PRIVATE
   # tests
   TritonTestAnalysis
   TritonTestDialect
-  TritonAMDGPUTestAnalysis
   # MLIR core
   MLIRReduceLib
   MLIRPass
@@ -52,7 +51,6 @@ target_link_libraries(triton-lsp PRIVATE
   # tests
   TritonTestAnalysis
   TritonTestDialect
-  TritonAMDGPUTestAnalysis
   # MLIR core
   MLIRLspServerLib
   MLIRPass

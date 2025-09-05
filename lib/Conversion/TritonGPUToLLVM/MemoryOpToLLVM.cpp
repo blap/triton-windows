@@ -1,16 +1,23 @@
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "triton/Conversion/TritonGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton/Conversion/TritonGPUToLLVM/TargetInfoBase.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/Types.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
 
-namespace {
-
+// Add namespace using declarations
 using namespace mlir;
 using namespace mlir::triton;
 using namespace mlir::triton::gpu;
+
+namespace {
 
 // blocked -> shared.
 // Swizzling in shared memory to avoid bank conflict. Normally used for

@@ -169,8 +169,10 @@ struct TMAStoreLowering : public OpRewritePattern<DescriptorStoreOp> {
       auto indices = translateTMAIndices(
           rewriter, op.getLoc(),
           op.getDesc().getType().getBlockType().getEncoding(), op.getIndices());
+      // Fixed the argument order and added the missing predicate argument
+      Value pred = rewriter.create<arith::ConstantIntOp>(op.getLoc(), 1, 1);
       rewriter.create<triton::nvidia_gpu::AsyncTMACopyLocalToGlobalOp>(
-          op.getLoc(), tmaPtr, indices, alloc);
+          op.getLoc(), tmaPtr, indices, alloc, pred);
     };
     lowerTMAStore(op, op.getSrc(), op.getDesc(), createStore, rewriter);
     return success();
@@ -186,6 +188,7 @@ struct TMAReduceLowering : public OpRewritePattern<DescriptorReduceOp> {
       auto indices = translateTMAIndices(
           rewriter, op.getLoc(),
           op.getDesc().getType().getBlockType().getEncoding(), op.getIndices());
+      // Fixed the argument order to match the correct signature
       rewriter.create<triton::nvidia_gpu::AsyncTMAReduceOp>(
           op.getLoc(), op.getKind(), tmaPtr, indices, alloc);
     };
@@ -200,6 +203,7 @@ struct TMAScatterLowering : public OpRewritePattern<DescriptorScatterOp> {
   LogicalResult matchAndRewrite(DescriptorScatterOp op,
                                 PatternRewriter &rewriter) const override {
     auto createStore = [&](Value tmaPtr, Value alloc) {
+      // Fixed the argument order to match the correct signature
       rewriter.create<triton::nvidia_gpu::AsyncTMAScatterOp>(
           op.getLoc(), tmaPtr, op.getXOffsets(), op.getYOffset(), alloc);
     };

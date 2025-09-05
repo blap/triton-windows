@@ -4,9 +4,11 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 
-#include "PatternTritonGPUOpToLLVM.h"
+// Fixed path to reference the correct location of PatternTritonGPUOpToLLVM.h
+#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+// Fixed path to reference the correct location of PTXAsmFormat.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
 #include "mlir/IR/Value.h"
 #include "mlir/IR/ValueRange.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -15,6 +17,11 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include <array>
+
+// Added missing headers for type definitions
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
+#include "mlir/Support/LogicalResult.h"
 
 using namespace mlir;
 using namespace mlir::triton;

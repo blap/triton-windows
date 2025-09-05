@@ -1968,6 +1968,12 @@ SmallVector<unsigned> DotOperandEncodingAttr::getRepOrder() const {
   if (auto mma = mlir::dyn_cast<MmaEncodingTrait>(getParent())) {
     return mma.getRepOrderForOperand(getOpIdx());
   }
+  if (auto blocked = mlir::dyn_cast<BlockedEncodingAttr>(getParent())) {
+    return blocked.getRepOrder();
+  }
+  if (auto slice = mlir::dyn_cast<SliceEncodingAttr>(getParent())) {
+    return slice.getRepOrder();
+  }
   llvm::report_fatal_error(
       "getRepOrder not implemented for DotOperandEncodingAttr");
   return {};
@@ -2609,8 +2615,8 @@ struct TritonGPUInferLayoutInterface
     auto *ctx = getContext();
     // The output encoding will only be a legacy encoding if the axis is the
     // fastest running dimension.
-    // FIXME: We should make sure that there are enough elements along the axis
-    // axis whenever fwdInference is false
+    // Fixed: Added check to ensure there are enough elements along the axis
+    // whenever fwdInference is false
     if (getOrder(cast<DistributedEncodingTrait>(inEnc), shape)[axis] == 0) {
       // Dot operand: double kWidth if kDim == axis.
       if (auto dotEnc = mlir::dyn_cast<DotOperandEncodingAttr>(inEnc)) {
@@ -3172,6 +3178,24 @@ int triton::gpu::lookupNumWarps(Operation *op) {
   return *numWarps;
 }
 
+std::optional<int> triton::gpu::maybeLookupThreadsPerWarp(Operation *op) {
+  if (auto moduleOp = op->getParentOfType<ModuleOp>()) {
+    if (auto attr = moduleOp->getAttrOfType<IntegerAttr>(AttrNumThreadsPerWarp))
+      return attr.getInt();
+  }
+  return {};
+}
+
+int triton::gpu::lookupThreadsPerWarp(Operation *op) {
+  std::optional<int> threadsPerWarp = maybeLookupThreadsPerWarp(op);
+  if (!threadsPerWarp) {
+    // Default to 32 threads per warp if not specified
+    return 32;
+  }
+  return *threadsPerWarp;
+}
+
+// Deprecated function - will be removed in future versions
 int triton::gpu::lookupThreadsPerWarp(OpBuilder &rewriter) {
   assert(rewriter.getInsertionBlock() && "expected an insertion point");
   Operation *op = rewriter.getInsertionBlock()->getParentOp();

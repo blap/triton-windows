@@ -156,12 +156,13 @@ static RankedTensorType getNewIndicesType(RankedTensorType type,
 
 // Function for converting any gather or scatter op that requires a specific
 // index layout. This also handles converting result types if there are any.
-static LogicalResult convertGatherScatterIndices(Operation *op,
-                                                 OpOperand &indices,
+static LogicalResult convertGatherScatterIndices(Operation *op, OpOperand &indices,
                                                  ConversionPatternRewriter &b) {
   auto type = cast<RankedTensorType>(indices.get().getType());
+  // Get the operation from the rewriter to use the new consistent API
+  Operation *rewriterOp = b.getInsertionBlock()->getParentOp();
   RankedTensorType newType =
-      getNewIndicesType(type, lookupThreadsPerWarp(b), lookupNumWarps(op));
+      getNewIndicesType(type, lookupThreadsPerWarp(rewriterOp), lookupNumWarps(op));
   if (!newType)
     return failure();
   Value index = b.create<ConvertLayoutOp>(op->getLoc(), newType, indices.get());

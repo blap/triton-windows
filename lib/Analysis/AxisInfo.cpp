@@ -219,6 +219,8 @@ public:
                       /*knownConstantValue=*/{value});
     }
     // TODO: generalize to dense attr
+    // Currently only supports splat attributes; extension to dense attributes
+    // with varying values would require more sophisticated analysis
     auto splatAttr = dyn_cast<SplatElementsAttr>(op.getValue());
     if (splatAttr && splatAttr.getElementType().isIntOrIndex()) {
       int64_t value = splatAttr.template getSplatValue<APInt>().getZExtValue();

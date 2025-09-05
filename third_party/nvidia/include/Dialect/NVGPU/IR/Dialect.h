@@ -29,14 +29,14 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
-#include "nvidia/include/Dialect/NVGPU/IR/Dialect.h.inc"
-#include "nvidia/include/Dialect/NVGPU/IR/OpsEnums.h.inc"
+#include "Dialect.h.inc"
+#include "OpsEnums.h.inc"
 
 #define GET_ATTRDEF_CLASSES
-#include "nvidia/include/Dialect/NVGPU/IR/NVGPUAttrDefs.h.inc"
+#include "NVGPUAttrDefs.h.inc"
 
 #define GET_OP_CLASSES
-#include "nvidia/include/Dialect/NVGPU/IR/Ops.h.inc"
+#include "Ops.h.inc"
 
 namespace mlir {
 namespace triton {

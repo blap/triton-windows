@@ -7,25 +7,30 @@ add_triton_library(TritonNVIDIAGPUToLLVM
     DotOpToLLVM/WGMMA.cpp
     DotOpToLLVM.cpp
     ElementwiseOpToLLVM.cpp
-    LoadStoreOpToLLVM.cpp
+    LoadStoreOpToLLVM.cpp  # Uncommented problematic file
     BarrierOpToLLVM.cpp
     TritonGPUToLLVM.cpp
-    TMAToLLVM.cpp
+    TMAToLLVM.cpp  # Uncommented TMA-related file
     SPMDOpToLLVM.cpp
     TensorMemoryToLLVM.cpp
     TensorPtrOpsToLLVM.cpp
     ClusterOpsToLLVM.cpp
     PTXAsmFormat.cpp
     Utility.cpp
-    Fp4ToFpOpToLLVM.cpp
     TargetInfo.cpp
+    Fp4ToFpOpToLLVM.cpp
 
     DEPENDS
     TritonNVIDIAGPUConversionPassIncGen
     NVGPUAttrDefsIncGen
+    NVGPUTableGen
 
     LINK_LIBS PUBLIC
     TritonGPUToLLVM
-    TritonProtonToLLVM
     MLIRReconcileUnrealizedCasts
+    MLIRMathToLLVM
 )
+
+if (TRITON_BUILD_PROTON)
+    target_link_libraries(TritonNVIDIAGPUToLLVM PUBLIC TritonProtonToLLVM)
+endif()

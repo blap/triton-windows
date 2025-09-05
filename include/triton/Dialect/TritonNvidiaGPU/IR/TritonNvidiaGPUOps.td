@@ -307,11 +307,12 @@ def TTNG_AsyncTMACopyLocalToGlobalOp : TTNG_Op<"async_tma_copy_local_to_global">
   let arguments = (ins
     Arg<TT_TensorDescType, "", [MemRead<GlobalMemory>, MemWrite<GlobalMemory>]>:$desc,
     Variadic<I32>:$coord,
-    Arg<TTG_MemDescType, "", [MemRead<SharedMemory>]>:$src
+    Arg<TTG_MemDescType, "", [MemRead<SharedMemory>]>:$src,
+    I1:$pred
   );
 
   let assemblyFormat = [{
-    $desc `[` $coord `]` $src
+    $desc `[` $coord `]` $src `,` $pred
     attr-dict `:` qualified(type($desc)) `,` qualified(type($src))
   }];
 }
@@ -744,5 +745,7 @@ def TTNG_TensormapFenceproxyAcquireOp: TTNG_Op<
     $desc_ptr attr-dict `:` qualified(type($desc_ptr))
   }];
 }
+
+
 
 #endif

@@ -43,6 +43,10 @@ static SmallVector<unsigned> getRepShapeForCvt(RankedTensorType srcTy,
 
   if (shouldUseDistSmem(srcLayout, dstLayout)) {
     // TODO: padding to avoid bank conflicts
+    // Potential strategies for bank conflict avoidance:
+    // 1. Add padding elements to align memory accesses
+    // 2. Use different memory access patterns
+    // 3. Reorganize data layout to minimize conflicts
     return convertType<unsigned, int64_t>(gpu::getShapePerCTA(srcTy));
   }
 

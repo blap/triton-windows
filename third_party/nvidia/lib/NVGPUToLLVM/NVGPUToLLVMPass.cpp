@@ -1,7 +1,7 @@
 #include "NVGPUToLLVM/NVGPUToLLVMPass.h"
 #include "NVGPUToLLVM/Passes.h"
 
-#include "Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/IR/PatternMatch.h"

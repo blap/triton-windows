@@ -99,13 +99,13 @@ static RankedTensorType replaceEncoding(RankedTensorType oldType,
 
 // This function considers a gather op in isolation and attempts to determine
 // whether an optimized layout can be applied to the source and index tensors.
-static LogicalResult setOptimizedGatherLayout(GatherOp op, RewriterBase &b) {
-  RankedTensorType srcType = op.getSrc().getType();
-  RankedTensorType idxType = op.getIndices().getType();
-
-  // Determine a warp-local gather layout that minimizes the number of emitted
-  // warp shuffles.
-  unsigned numThreadsPerWarp = lookupThreadsPerWarp(b);
+LogicalResult setOptimizedGatherLayout(GatherOp op, PatternRewriter &b) {
+  auto srcType = op.getSrc().getType();
+  auto idxType = op.getIndices().getType();
+  
+  // Get the operation from the rewriter to use the new consistent API
+  Operation *rewriterOp = b.getInsertionBlock()->getParentOp();
+  unsigned numThreadsPerWarp = lookupThreadsPerWarp(rewriterOp);
   unsigned numWarps = lookupNumWarps(op);
 
   // If in a gather column, each thread owns `srcSizePerThread[axis]` elements

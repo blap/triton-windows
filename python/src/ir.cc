@@ -1,5 +1,6 @@
 #include "ir.h"
 
+#include <algorithm>
 #include <optional>
 #include <pybind11/cast.h>
 #include <pybind11/functional.h>
@@ -24,6 +25,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/LLVMTranslationInterface.h"
 #include "mlir/Transforms/LocationSnapshot.h"
 
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
@@ -36,7 +38,9 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SourceMgr.h"
 
+#ifdef TRITON_BUILD_PROTON
 #include "third_party/proton/dialect/include/Dialect/Proton/IR/Dialect.h"
+#endif
 
 #include "llvm/ADT/SmallVector.h"
 
@@ -44,7 +48,7 @@ void setAsyncTaskIds(mlir::Operation *op,
                      llvm::ArrayRef<AsyncTaskId> asyncTaskIds) {
   llvm::SmallVector<AsyncTaskId> sortedAsyncTaskIds(asyncTaskIds.begin(),
                                                     asyncTaskIds.end());
-  sort(sortedAsyncTaskIds);
+  std::sort(sortedAsyncTaskIds.begin(), sortedAsyncTaskIds.end());
   auto i32Ty = IntegerType::get(op->getContext(), 32);
   auto size = static_cast<int64_t>(sortedAsyncTaskIds.size());
   auto vecTy = VectorType::get(size, i32Ty);
@@ -315,12 +319,19 @@ void init_triton_ir(py::module &&m) {
     registry.insert<TritonDialect, ::mlir::triton::gpu::TritonGPUDialect,
                     math::MathDialect, arith::ArithDialect, scf::SCFDialect,
                     ::mlir::gpu::GPUDialect, cf::ControlFlowDialect,
-                    ::mlir::triton::proton::ProtonDialect, LLVM::LLVMDialect,
+                    LLVM::LLVMDialect,
                     mlir::ub::UBDialect>();
+#ifdef TRITON_BUILD_PROTON
+    registry.insert<::mlir::triton::proton::ProtonDialect>();
+#endif
     mlir::LLVM::registerInlinerInterface(registry);
     registerBuiltinDialectTranslation(registry);
     registerLLVMDialectTranslation(registry);
     mlir::LLVM::registerInlinerInterface(registry);
+    // Register LLVM translation interface for Triton dialect
+    registry.addExtension(+[](MLIRContext *ctx, triton::TritonDialect *dialect) {
+      dialect->addInterfaces<mlir::LLVMTranslationDialectInterface>();
+    });
     context.appendDialectRegistry(registry);
     context.loadAllAvailableDialects();
   });
@@ -1730,13 +1741,14 @@ void init_triton_ir(py::module &&m) {
               bool isSignedInteger) -> Value {
              return self.create<MakeTensorDescOp>(base, shape, strides,
                                                   tensorShape, isSignedInteger);
-           })
-      // Proton Ops
-      .def("create_proton_record",
-           [](TritonOpBuilder &self, bool isStart, int32_t regionId) -> void {
-             self.create<mlir::triton::proton::RecordOp>(isStart, regionId);
            });
-
+#ifdef TRITON_BUILD_PROTON
+  // Proton Ops
+  builder.def("create_proton_record",
+       [](TritonOpBuilder &self, bool isStart, int32_t regionId) -> void {
+         self.create<mlir::triton::proton::RecordOp>(isStart, regionId);
+       });
+#endif
   py::class_<PassManager>(m, "pass_manager", py::module_local())
       .def(py::init<MLIRContext *>())
       .def("enable_debug",

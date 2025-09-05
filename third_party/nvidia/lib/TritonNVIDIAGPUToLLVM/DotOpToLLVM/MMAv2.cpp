@@ -1,5 +1,5 @@
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
-#include "Utility.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
 #include "mlir/Support/LLVM.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"
@@ -22,39 +22,44 @@ Value loadC(Value tensor, Value llTensor,
   auto tensorTy = cast<RankedTensorType>(tensor.getType());
   size_t fcSize = triton::gpu::getTotalElemsPerThread(tensor.getType());
 
-  assert(isa<NvidiaMmaEncodingAttr>(tensorTy.getEncoding()) &&
-         "Currently, we only support $c with a mma layout.");
-  // Load a normal C tensor with mma layout, that should be a
-  // LLVM::struct with fcSize elements.
-  auto structTy = cast<LLVM::LLVMStructType>(llTensor.getType());
-  assert(structTy.getBody().size() == fcSize &&
-         "DotOp's $c operand should pass the same number of values as $d in "
-         "mma layout.");
+  // Check if this is using MMA layout - for sm61, we should use FMA path instead
+  if (isa<NvidiaMmaEncodingAttr>(tensorTy.getEncoding())) {
+    // For sm61, we should not be using MMA layouts, but if we are, handle gracefully
+    // Load a normal C tensor with mma layout, that should be a
+    // LLVM::struct with fcSize elements.
+    auto structTy = cast<LLVM::LLVMStructType>(llTensor.getType());
+    assert(structTy.getBody().size() == fcSize &&
+           "DotOp's $c operand should pass the same number of values as $d in "
+           "mma layout.");
 
-  auto numMmaRets = tensorTy.getElementType().getIntOrFloatBitWidth() / 8;
-  assert(numMmaRets == 4 || numMmaRets == 2);
-  if (numMmaRets == 4) {
-    return llTensor;
-  } else if (numMmaRets == 2) {
-    auto cPack = SmallVector<Value>();
-    auto cElemTy = tensorTy.getElementType();
-    int numCPackedElem = 4 / numMmaRets;
-    Type cPackTy = vec_ty(cElemTy, numCPackedElem);
-    for (int i = 0; i < fcSize; i += numCPackedElem) {
-      Value pack = rewriter.create<LLVM::UndefOp>(loc, cPackTy);
-      for (int j = 0; j < numCPackedElem; ++j) {
-        pack = b.insert_element(cPackTy, pack,
-                                b.extract_val(cElemTy, llTensor, i + j),
-                                b.i32_val(j));
+    auto numMmaRets = tensorTy.getElementType().getIntOrFloatBitWidth() / 8;
+    assert(numMmaRets == 4 || numMmaRets == 2);
+    if (numMmaRets == 4) {
+      return llTensor;
+    } else if (numMmaRets == 2) {
+      auto cPack = SmallVector<Value>();
+      auto cElemTy = tensorTy.getElementType();
+      int numCPackedElem = 4 / numMmaRets;
+      Type cPackTy = vec_ty(cElemTy, numCPackedElem);
+      for (int i = 0; i < fcSize; i += numCPackedElem) {
+        Value pack = rewriter.create<LLVM::UndefOp>(loc, cPackTy);
+        for (int j = 0; j < numCPackedElem; ++j) {
+          pack = b.insert_element(cPackTy, pack,
+                                  b.extract_val(cElemTy, llTensor, i + j),
+                                  b.i32_val(j));
+        }
+        cPack.push_back(pack);
       }
-      cPack.push_back(pack);
-    }
 
-    Type structTy = LLVM::LLVMStructType::getLiteral(
-        ctx, SmallVector<Type>(cPack.size(), cPackTy));
-    Value result =
-        packLLElements(loc, typeConverter, cPack, rewriter, structTy);
-    return result;
+      Type structTy = LLVM::LLVMStructType::getLiteral(
+          ctx, SmallVector<Type>(cPack.size(), cPackTy));
+      Value result =
+          packLLElements(loc, typeConverter, cPack, rewriter, structTy);
+      return result;
+    }
+  } else {
+    // For non-MMA layouts (like blocked layouts used in sm61), just return as is
+    return llTensor;
   }
 
   return llTensor;

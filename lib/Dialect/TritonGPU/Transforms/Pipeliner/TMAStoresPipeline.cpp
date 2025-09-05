@@ -4,6 +4,7 @@
 #include "triton/Dialect/TritonGPU/Transforms/Schedule.h"
 #include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonNvidiaGPU/Transforms/TMAUtilities.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 
 using namespace mlir;
 namespace tt = mlir::triton;
@@ -64,8 +65,9 @@ static void createTMAAsyncCopy(scf::ForOp forOp, const TMAStore &store,
         builder, storeOp.getLoc(),
         storeOp.getDesc().getType().getBlockType().getEncoding(),
         storeOp.getIndices());
+    auto trueValue = builder.create<arith::ConstantOp>(loc, builder.getI1Type(), builder.getBoolAttr(true));
     builder.create<ttng::AsyncTMACopyLocalToGlobalOp>(
-        loc, desc, storeOp.getIndices(), alloc);
+        loc, desc, storeOp.getIndices(), alloc, trueValue);
   } else if (auto reduceOp = dyn_cast<tt::DescriptorReduceOp>(store.op)) {
     auto indices = ttng::translateTMAIndices(
         builder, reduceOp.getLoc(),

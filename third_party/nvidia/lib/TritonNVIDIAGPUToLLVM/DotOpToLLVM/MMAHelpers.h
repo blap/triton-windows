@@ -1,5 +1,7 @@
-#include "Utility.h"
+// Fixed path to reference the correct location of Utility.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
 #include "mlir/Support/LLVM.h"
+#include "triton/Conversion/TritonGPUToLLVM/TypeConverter.h"
 
 namespace mlir {
 namespace triton {

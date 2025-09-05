@@ -1,4 +1,4 @@
-#include "Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "MMAHelpers.h"
 #include "PatternTritonGPUOpToLLVM.h"
 #include "Utility.h"
@@ -666,7 +666,7 @@ void convertScaledDot(const LLVMTypeConverter &typeConverter,
 
 struct TCGen5MMAOpConversion
     : public ConvertOpToLLVMPattern<ttng::TCGen5MMAOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<ttng::TCGen5MMAOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(ttng::TCGen5MMAOp op, OpAdaptor adaptor,
@@ -688,7 +688,7 @@ struct TCGen5MMAOpConversion
 
 struct TCGen5MMAScaledOpConversion
     : public ConvertOpToLLVMPattern<ttng::TCGen5MMAScaledOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<ttng::TCGen5MMAScaledOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(ttng::TCGen5MMAScaledOp op, OpAdaptor adaptor,

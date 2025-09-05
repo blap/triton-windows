@@ -198,14 +198,18 @@ Value getThreadId(OpBuilder &rewriter, Location loc) {
 Value getLaneId(OpBuilder &rewriter, Location loc) {
   TritonLLVMOpBuilder b(loc, rewriter);
   Value tid = getThreadId(rewriter, loc);
-  int threadsPerWarp = triton::gpu::lookupThreadsPerWarp(rewriter);
+  // Get the operation from the rewriter to use the new consistent API
+  Operation *op = rewriter.getInsertionBlock()->getParentOp();
+  int threadsPerWarp = triton::gpu::lookupThreadsPerWarp(op);
   return b.urem(tid, b.i32_val(threadsPerWarp));
 }
 
 std::pair<Value, Value> getLaneAndWarpId(OpBuilder &rewriter, Location loc) {
   TritonLLVMOpBuilder b(loc, rewriter);
   Value tid = getThreadId(rewriter, loc);
-  int threadsPerWarp = triton::gpu::lookupThreadsPerWarp(rewriter);
+  // Get the operation from the rewriter to use the new consistent API
+  Operation *op = rewriter.getInsertionBlock()->getParentOp();
+  int threadsPerWarp = triton::gpu::lookupThreadsPerWarp(op);
   Value warpSizeVal = b.i32_val(threadsPerWarp);
   Value laneId = b.urem(tid, warpSizeVal);
 
@@ -611,6 +615,26 @@ Value packLLElements(Location loc, const LLVMTypeConverter *typeConverter,
   for (auto [i, value] : llvm::enumerate(resultVals)) {
     assert(value && "unexpected null value");
     if (value.getType() != elementTypes[i]) {
+      // Check if this is a compatible type conversion for sm61
+      // Allow int8->int32 and fp16->fp32 conversions for legacy GPU support
+      auto valueBitWidth = value.getType().getIntOrFloatBitWidth();
+      auto expectedBitWidth = elementTypes[i].getIntOrFloatBitWidth();
+      
+      // For sm61, allow widening conversions for dot operations
+      if ((value.getType().isInteger() && elementTypes[i].isInteger() && 
+           valueBitWidth < expectedBitWidth) ||
+          (value.getType().isF16() && elementTypes[i].isF32())) {
+        // Perform type conversion
+        Value convertedValue;
+        if (value.getType().isInteger() && elementTypes[i].isInteger()) {
+          convertedValue = b.zext(elementTypes[i], value);
+        } else if (value.getType().isF16() && elementTypes[i].isF32()) {
+          convertedValue = b.fpext(elementTypes[i], value);
+        }
+        llvmStruct = b.insert_val(structType, llvmStruct, convertedValue, i);
+        continue;
+      }
+      
       LDBG("type " << type << " structType " << structType);
       LDBG("value " << value);
       emitError(loc) << "invalid element type in packLLElements. Expected "

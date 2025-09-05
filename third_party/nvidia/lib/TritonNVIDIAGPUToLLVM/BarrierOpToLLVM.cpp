@@ -21,14 +21,27 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "PatternTritonGPUOpToLLVM.h"
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+// Fixed path to reference the correct location of PatternTritonGPUOpToLLVM.h
+#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
+// Fixed path to reference the correct location of PTXAsmFormat.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
+// Fixed path to reference the correct location of Utility.h
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
 
-#include "Utility.h"
+// Added missing headers for type definitions and namespaces
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Dialect.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Support/LogicalResult.h"
+#include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 
 using namespace mlir;
 using namespace mlir::triton;
@@ -51,7 +64,7 @@ struct FenceAsyncSharedOpConversion
 
 struct InitBarrierOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::InitBarrierOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::InitBarrierOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::InitBarrierOp op, OpAdaptor adaptor,
@@ -81,7 +94,7 @@ struct InitBarrierOpConversion
 
 struct InvalBarrierOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::InvalBarrierOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::InvalBarrierOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::InvalBarrierOp op, OpAdaptor adaptor,
@@ -110,7 +123,7 @@ struct InvalBarrierOpConversion
 
 struct BarrierExpectConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::BarrierExpectOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::BarrierExpectOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::BarrierExpectOp op, OpAdaptor adaptor,
@@ -142,7 +155,7 @@ struct BarrierExpectConversion
 
 struct WaitBarrierOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::WaitBarrierOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::WaitBarrierOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::WaitBarrierOp op, OpAdaptor adaptor,
@@ -188,7 +201,7 @@ struct WaitBarrierOpConversion
 
 struct ArriveBarrierOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::ArriveBarrierOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<triton::nvidia_gpu::ArriveBarrierOp>::ConvertOpToLLVMPattern;
 
   LogicalResult
   matchAndRewrite(triton::nvidia_gpu::ArriveBarrierOp op, OpAdaptor adaptor,

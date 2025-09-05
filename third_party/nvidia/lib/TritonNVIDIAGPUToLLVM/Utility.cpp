@@ -1,13 +1,40 @@
-#include "Utility.h"
-#include "Dialect/NVGPU/IR/Dialect.h"
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
-#include "triton/Conversion/TritonGPUToLLVM/TypeConverter.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/Twine.h"
+
+// Add missing LLVM and MLIR includes
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "mlir/IR/Types.h"
+#include "mlir/IR/TypeRange.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/FunctionInterfaces.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
+
+// Add namespace using declarations
+using namespace mlir;
+using namespace mlir::triton;
 
 namespace mlir {
-namespace LLVM {
+namespace triton {
 namespace NVIDIA {
-using namespace mlir::triton;
+
+// Forward declaration
+Value getSRegValue(RewriterBase &rewriter, Location loc, StringRef sRegStr);
 
 static Value shuffleCommonImpl(Location loc, RewriterBase &rewriter, Value val,
                                Value i, NVVM::ShflKind mode, Value clamp) {
@@ -70,7 +97,8 @@ Value shuffleUp(Location loc, RewriterBase &rewriter, Value val, int i) {
 
 Value shuffleIdx(Location loc, RewriterBase &rewriter, Value val, int i) {
   auto b = TritonLLVMOpBuilder(loc, rewriter);
-  return shuffleIdx(loc, rewriter, val, b.i32_val(i));
+  return shuffleCommon(loc, rewriter, val, b.i32_val(i), NVVM::ShflKind::idx,
+                       b.i32_val(0x1f));
 }
 
 Value shuffleIdx(Location loc, RewriterBase &rewriter, Value val, Value i) {
@@ -96,19 +124,28 @@ Value llGetPid(Location loc, RewriterBase &rewriter, ModuleOp moduleOp,
   return getSRegValue(rewriter, loc, sreg);
 }
 
-Value getSRegValue(OpBuilder &rewriter, Location loc, StringRef sRegStr) {
+Value getSRegValue(RewriterBase &rewriter, Location loc, StringRef sRegStr) {
   ValueRange args;
   auto intrName = Twine("llvm.nvvm.read.ptx.sreg.") + sRegStr;
   auto callOp =
-      createLLVMIntrinsicCallOp(rewriter, loc, intrName.str(), i32_ty, args);
+      LLVM::createLLVMIntrinsicCallOp(rewriter, loc, intrName.str(), i32_ty, args);
   return callOp.getResult(0);
+}
+
+Value getThreadId(RewriterBase &rewriter, Location loc) {
+  return getSRegValue(rewriter, loc, "tid.x");
+}
+
+// Placeholder implementation for isCanonicalIndex
+bool isCanonicalIndex(size_t index, uint32_t mask) {
+  return (index & ~static_cast<size_t>(mask)) == index;
 }
 
 Value permute(Location loc, RewriterBase &rewriter, Value a, Value b,
               Value mask) {
   Value args[] = {a, b, mask};
   auto op =
-      createLLVMIntrinsicCallOp(rewriter, loc, "llvm.nvvm.prmt", i32_ty, args);
+      LLVM::createLLVMIntrinsicCallOp(rewriter, loc, "llvm.nvvm.prmt", i32_ty, args);
   return op.getResult(0);
 }
 
@@ -121,7 +158,7 @@ void createSyncWarp(Location loc, OpBuilder &rewriter) {
   TritonLLVMOpBuilder b(loc, rewriter);
   Type resultTy = void_ty(rewriter.getContext());
   Value args[] = {b.i32_val(0xffffffff)};
-  createLLVMIntrinsicCallOp(rewriter, loc, "llvm.nvvm.bar.warp.sync", resultTy,
+  LLVM::createLLVMIntrinsicCallOp(rewriter, loc, "llvm.nvvm.bar.warp.sync", resultTy,
                             args);
 }
 
@@ -132,6 +169,48 @@ Value createElectPredicateWarp0(Location loc, RewriterBase &rewriter) {
   return b.and_(warp0, createElectPredicate(loc, rewriter));
 }
 
+std::pair<Value, Value> getLaneAndWarpId(RewriterBase &rewriter, Location loc) {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  Value threadId = getThreadId(rewriter, loc);
+  Value laneId = b.urem(threadId, b.i32_val(32));
+  Value warpId = b.udiv(threadId, b.i32_val(32));
+  return std::make_pair(laneId, warpId);
+}
+
+Value createCachePolicy(triton::EvictionPolicy opEvict,
+                        ConversionPatternRewriter &rewriter, Location loc,
+                        int computeCapability) {
+  // Emit createpolicy.fractional.L2::policy.b64 xx 1.0
+  triton::PTXBuilder ptxBuilder;
+  const bool hasL2EvictPolicy =
+      opEvict == triton::EvictionPolicy::EVICT_FIRST ||
+      opEvict == triton::EvictionPolicy::EVICT_LAST;
+  Value policyRet;
+
+  const bool hardwareSupport = computeCapability >= 80;
+
+  if (hasL2EvictPolicy && hardwareSupport) {
+    auto &policy =
+        ptxBuilder.create<>("createpolicy.fractional")
+            ->o("L2::evict_first",
+                opEvict == triton::EvictionPolicy::EVICT_FIRST)
+            .o("L2::evict_last", opEvict == triton::EvictionPolicy::EVICT_LAST)
+            .b(64);
+
+    const std::string writeConstraint = "=l";
+    // prepare asm operands
+    auto *dstOpr = ptxBuilder.newOperand(writeConstraint, /*init=*/true);
+    std::string fractionStr = "1.0";
+    auto *fractionOpr = ptxBuilder.newConstantOperand(fractionStr);
+    policy(dstOpr, fractionOpr);
+
+    Type policyRetTy = rewriter.getI64Type();
+    policyRet = ptxBuilder.launch(rewriter, loc, policyRetTy);
+  }
+
+  return policyRet;
+}
+
 } // namespace NVIDIA
-} // namespace LLVM
+} // namespace triton
 } // namespace mlir

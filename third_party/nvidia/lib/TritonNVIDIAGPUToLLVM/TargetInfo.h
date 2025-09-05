@@ -1,6 +1,7 @@
 #ifndef TRITON_CONVERSION_TRITONGPU_TO_LLVM_TARGETINFONVIDIA_H
 #define TRITON_CONVERSION_TRITONGPU_TO_LLVM_TARGETINFONVIDIA_H
 
+// Fixed path to reference the correct location of TargetInfoBase.h
 #include "triton/Conversion/TritonGPUToLLVM/TargetInfoBase.h"
 
 namespace mlir::triton::NVIDIA {

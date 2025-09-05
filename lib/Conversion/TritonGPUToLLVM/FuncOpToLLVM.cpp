@@ -147,17 +147,22 @@ struct FuncOpConversion : public ConvertOpToLLVMPattern<triton::FuncOp> {
   LogicalResult
   matchAndRewrite(triton::FuncOp funcOp, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    LLVM_DEBUG(llvm::dbgs() << "Converting function: " << funcOp.getName() << "\n");
+    
     // Prevent LLVM's inliner to inline this function
     auto amendedFuncOp = amendFuncOp(funcOp, rewriter, targetInfo);
+    LLVM_DEBUG(llvm::dbgs() << "  Amended function: " << amendedFuncOp.getName() << "\n");
 
     FailureOr<LLVM::LLVMFuncOp> maybeNewFuncOp =
         mlir::convertFuncOpToLLVMFuncOp(amendedFuncOp, rewriter,
                                         *getTypeConverter());
     if (failed(maybeNewFuncOp)) {
+      LLVM_DEBUG(llvm::dbgs() << "  Failed to convert function to LLVM\n");
       return failure();
     }
 
     LLVM::LLVMFuncOp newFuncOp = *maybeNewFuncOp;
+    LLVM_DEBUG(llvm::dbgs() << "  Successfully converted to LLVM function\n");
 
     auto ctx = funcOp->getContext();
 

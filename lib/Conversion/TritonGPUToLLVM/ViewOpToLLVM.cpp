@@ -184,7 +184,7 @@ struct JoinOpConversion : public ConvertOpToLLVMPattern<JoinOp> {
 };
 struct SplitOpConversion : public ConvertOpToLLVMPattern<SplitOp> {
   using OpAdaptor = typename SplitOp::Adaptor;
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<SplitOp>::ConvertOpToLLVMPattern;
   LogicalResult
   matchAndRewrite(SplitOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -298,7 +298,7 @@ struct ExpandDimsOpConversion : public ConvertOpToLLVMPattern<ExpandDimsOp> {
 };
 struct MemDescTransOpConversion
     : public ConvertOpToLLVMPattern<MemDescTransOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<MemDescTransOp>::ConvertOpToLLVMPattern;
   LogicalResult
   matchAndRewrite(MemDescTransOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -319,7 +319,7 @@ struct MemDescTransOpConversion
 
 struct MemDescReshapeOpConversion
     : public ConvertOpToLLVMPattern<MemDescReshapeOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<MemDescReshapeOp>::ConvertOpToLLVMPattern;
   LogicalResult
   matchAndRewrite(MemDescReshapeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -349,7 +349,7 @@ struct MemDescReshapeOpConversion
 };
 
 struct TransOpConversion : public ConvertOpToLLVMPattern<TransOp> {
-  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+  using ConvertOpToLLVMPattern<TransOp>::ConvertOpToLLVMPattern;
   LogicalResult
   matchAndRewrite(TransOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {

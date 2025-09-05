@@ -1,5 +1,5 @@
 #include "TargetInfo.h"
-#include "TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
 #include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -15,7 +15,7 @@
 
 namespace mlir::triton {
 #define GEN_PASS_DEF_CONVERTWARPSPECIALIZETOLLVM
-#include "TritonNVIDIAGPUToLLVM/Passes.h.inc"
+#include "nvidia/include/TritonNVIDIAGPUToLLVM/Passes.h.inc"
 } // namespace mlir::triton
 
 using namespace mlir;

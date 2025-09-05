@@ -15,14 +15,8 @@ add_triton_library(TritonLLVMIR
         MLIRLLVMDialect
         MLIRLLVMToLLVMIRTranslation
         MLIRNVVMToLLVMIRTranslation
-        MLIRROCDLToLLVMIRTranslation
         MLIRSCFToControlFlow
         MLIRSupport
         MLIRTargetLLVMIRExport
         TritonGPUToLLVM
         )
-
-set_source_files_properties(
-        LLVMIRTranslation.cpp
-        PROPERTIES
-        COMPILE_FLAGS "-D__BUILD_DIR__=\\\"${CMAKE_BINARY_DIR}\\\"")

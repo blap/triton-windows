@@ -25,7 +25,7 @@
 #include "mlir/IR/OpImplementation.h"
 
 // clang-format off
-#include "Dialect/NVGPU/IR/Dialect.h"
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "Dialect/NVGPU/IR/Dialect.cpp.inc"
 // clang-format on
 

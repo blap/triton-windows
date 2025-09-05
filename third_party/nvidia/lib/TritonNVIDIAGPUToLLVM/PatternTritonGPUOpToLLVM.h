@@ -1,87 +1,105 @@
 #ifndef TRITON_CONVERSION_TRITONNVIDIAGPU_TO_LLVM_PATTERNS_TRITON_GPU_OP_TO_LLVM_H
 #define TRITON_CONVERSION_TRITONNVIDIAGPU_TO_LLVM_PATTERNS_TRITON_GPU_OP_TO_LLVM_H
 
-#include "TargetInfo.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/IR/PatternMatch.h"
 #include "triton/Analysis/AxisInfo.h"
 
+// Add missing includes for LLVM types
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Support/LLVM.h"
+#include "mlir/IR/Types.h"
+
+// Forward declare TargetInfo to avoid include issues
+namespace mlir {
+namespace triton {
+namespace NVIDIA {
+class TargetInfo;
+}
+}
+}
+
+// Use full namespace qualification for types
 namespace mlir {
 namespace triton {
 
 namespace NVIDIA {
 
-void populateBarrierOpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                     RewritePatternSet &patterns,
-                                     PatternBenefit benefit);
+void populateBarrierOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                     ::mlir::RewritePatternSet &patterns,
+                                     ::mlir::PatternBenefit benefit);
 
-void populateClusterOpsToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                      RewritePatternSet &patterns,
-                                      PatternBenefit benefit);
+void populateClusterOpsToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                      ::mlir::RewritePatternSet &patterns,
+                                      ::mlir::PatternBenefit benefit);
 
-void populateConvertLayoutOpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                           const TargetInfo &targetInfo,
-                                           RewritePatternSet &patterns,
-                                           PatternBenefit benefit);
+void populateConvertLayoutOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                           const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                           ::mlir::RewritePatternSet &patterns,
+                                           ::mlir::PatternBenefit benefit);
 
-void populateMemoryOpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                    const TargetInfo &targetInfo,
-                                    RewritePatternSet &patterns,
-                                    PatternBenefit benefit);
+void populateMemoryOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                    const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                    ::mlir::RewritePatternSet &patterns,
+                                    ::mlir::PatternBenefit benefit);
 
 void populateConvertLayoutOpToLLVMOptimizedPatterns(
-    LLVMTypeConverter &typeConverter, const TargetInfo &targetInfo,
-    RewritePatternSet &patterns, PatternBenefit benefit);
+    ::mlir::LLVMTypeConverter &typeConverter, const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+    ::mlir::RewritePatternSet &patterns, ::mlir::PatternBenefit benefit);
 
-void populateDotOpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                 RewritePatternSet &patterns,
-                                 PatternBenefit benefit);
+void populateDotOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                 ::mlir::RewritePatternSet &patterns,
+                                 ::mlir::PatternBenefit benefit);
 
 void populateElementwiseOpToLLVMPatterns(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
-    const TargetInfo &targetInfo, PatternBenefit benefit);
+    ::mlir::LLVMTypeConverter &typeConverter, ::mlir::RewritePatternSet &patterns,
+    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
+    const ::mlir::triton::NVIDIA::TargetInfo &targetInfo, ::mlir::PatternBenefit benefit);
 
-void populateFp4ToFpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                   RewritePatternSet &patterns,
-                                   PatternBenefit benefit);
+void populateFp4ToFpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                   ::mlir::RewritePatternSet &patterns,
+                                   ::mlir::PatternBenefit benefit);
 
-void populateLoadStoreOpToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                       const TargetInfo &targetInfo,
+void populateLoadStoreOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                       const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
                                        int computeCapability,
-                                       RewritePatternSet &patterns,
-                                       ModuleAxisInfoAnalysis &axisInfoAnalysis,
-                                       PatternBenefit benefit);
+                                       ::mlir::RewritePatternSet &patterns,
+                                       ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
+                                       ::mlir::PatternBenefit benefit = 1);
 
-void populateTensorPtrOpsToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                                        RewritePatternSet &patterns,
-                                        PatternBenefit benefit);
+void populateTensorPtrOpsToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                                        ::mlir::RewritePatternSet &patterns,
+                                        ::mlir::PatternBenefit benefit);
 
-void populateTMAToLLVMPatterns(LLVMTypeConverter &typeConverter,
-                               const TargetInfo &targetInfo,
-                               RewritePatternSet &patterns,
-                               PatternBenefit benefit);
+void populateTMAToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
+                               const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                               ::mlir::RewritePatternSet &patterns,
+                               ::mlir::PatternBenefit benefit);
 
-void populateSPMDOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                 RewritePatternSet &patterns,
-                                 PatternBenefit benefit);
+void populateSPMDOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,
+                                 ::mlir::RewritePatternSet &patterns,
+                                 ::mlir::PatternBenefit benefit);
 
-void populateClampFOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                   RewritePatternSet &patterns,
-                                   ModuleAxisInfoAnalysis &axisInfoAnalysis,
+void populateClampFOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,
+                                   ::mlir::RewritePatternSet &patterns,
+                                   ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
                                    int computeCapability,
-                                   PatternBenefit benefit);
+                                   ::mlir::PatternBenefit benefit);
 
-void populateTCGen5MMAOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                      RewritePatternSet &patterns,
-                                      PatternBenefit benefit);
+void populateTCGen5MMAOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,
+                                      ::mlir::RewritePatternSet &patterns,
+                                      ::mlir::PatternBenefit benefit);
 
-void populateTensorMemoryOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                         RewritePatternSet &patterns,
-                                         PatternBenefit benefit);
+void populateTensorMemoryOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,
+                                         ::mlir::RewritePatternSet &patterns,
+                                         ::mlir::PatternBenefit benefit);
 
 void populateTensorMemorySubviewOpToLLVMPattern(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    PatternBenefit benefit);
+    ::mlir::LLVMTypeConverter &typeConverter, ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit);
 } // namespace NVIDIA
 } // namespace triton
 } // namespace mlir
