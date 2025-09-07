@@ -3,9 +3,17 @@
 #include <algorithm>
 #include <optional>
 #include <pybind11/cast.h>
+
+using namespace pybind11;
 #include <pybind11/functional.h>
+
+using namespace pybind11;
 #include <pybind11/pybind11.h>
+
+using namespace pybind11;
 #include <pybind11/stl.h>
+
+using namespace pybind11;
 
 #include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"

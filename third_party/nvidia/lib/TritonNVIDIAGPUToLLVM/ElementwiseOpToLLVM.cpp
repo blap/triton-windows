@@ -5,7 +5,7 @@
 #include "mlir/IR/TypeUtilities.h"
 
 // Fixed path to reference the correct location of PatternTritonGPUOpToLLVM.h
-#include "third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
+#include "PatternTritonGPUOpToLLVM.h"
 
 // Fixed path to reference the correct location of PTXAsmFormat.h
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
@@ -829,7 +829,7 @@ private:
 void mlir::triton::NVIDIA::populateElementwiseOpToLLVMPatterns(
     LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
     ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
-    const TargetInfo &targetInfo, PatternBenefit benefit) {
+    const ::mlir::triton::TargetInfoBase &targetInfo, PatternBenefit benefit) {
   using namespace mlir::triton::gpu;
 
   patterns.add<OpToExternCallConversion<triton::PreciseSqrtOp>>(
@@ -874,12 +874,17 @@ void mlir::triton::NVIDIA::populateElementwiseOpToLLVMPatterns(
 }
 
 void ::mlir::triton::NVIDIA::populateClampFOpToLLVMPattern(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
-    PatternBenefit benefit) {
+    ::mlir::LLVMTypeConverter &typeConverter,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
+    int computeCapability,
+    ::mlir::PatternBenefit benefit) {
   using namespace mlir::triton::gpu;
 
   patterns.add<ClampFOpConversion>(typeConverter, axisInfoAnalysis,
                                    computeCapability, benefit);
-  }
 }
+} // namespace NVIDIA
+} // namespace mlir
+} // namespace triton
+} // namespace gpu

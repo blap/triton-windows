@@ -376,14 +376,16 @@ private:
 } // namespace
 
 void mlir::triton::NVIDIA::populateMemoryOpToLLVMPatterns(
-    LLVMTypeConverter &typeConverter, const TargetInfo &targetInfo,
-    RewritePatternSet &patterns, PatternBenefit benefit) {
+    ::mlir::LLVMTypeConverter &typeConverter,
+    const ::mlir::triton::TargetInfoBase &targetInfo,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit) {
   // Backend optimized memory ops get higher benefit
-  patterns.add<LocalAllocOpConversion>(typeConverter, targetInfo,
+  patterns.add<LocalAllocOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                        benefit.getBenefit() + 1);
-  patterns.add<LocalStoreOpConversion>(typeConverter, targetInfo,
+  patterns.add<LocalStoreOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                        benefit.getBenefit() + 1);
-  patterns.add<LocalLoadOpConversion>(typeConverter, targetInfo,
+  patterns.add<LocalLoadOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                       benefit.getBenefit() + 1);
   mlir::triton::populateMemoryOpToLLVMPatterns(typeConverter, targetInfo,
                                                patterns, benefit);

@@ -2,6 +2,13 @@
 #include "llvm/Support/Signals.h"
 #include <pybind11/pybind11.h>
 
+// Define TRITON_BACKENDS_TUPLE for NVIDIA backend only if it's available
+#ifdef TRITON_NVIDIA_BACKEND_AVAILABLE
+#define TRITON_BACKENDS_TUPLE (nvidia)
+#else
+#define TRITON_BACKENDS_TUPLE ()
+#endif
+
 namespace py = pybind11;
 
 #define FOR_EACH_1(MACRO, X) MACRO(X)
@@ -31,9 +38,13 @@ namespace py = pybind11;
 #define FOR_EACH_P(MACRO, ARGS_WITH_PARENS)                                    \
   FOR_EACH_P_INTERMEDIATE(MACRO, REMOVE_PARENS ARGS_WITH_PARENS)
 
+#ifdef TRITON_NVIDIA_BACKEND_AVAILABLE
 #define DECLARE_BACKEND(name) void init_triton_##name(pybind11::module &&m);
-
 #define INIT_BACKEND(name) init_triton_##name(m.def_submodule(#name));
+#else
+#define DECLARE_BACKEND(name)
+#define INIT_BACKEND(name)
+#endif
 
 void init_triton_env_vars(pybind11::module &m);
 void init_triton_ir(pybind11::module &&m);

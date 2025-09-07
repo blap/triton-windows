@@ -23,6 +23,7 @@
 
 #include "Utility.h"
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton/Analysis/AxisInfo.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -169,12 +170,12 @@ protected:
 struct LoadOpConversion : public mlir::ConvertOpToLLVMPattern<triton::LoadOp>,
                           public LoadStoreConversionBase {
   LoadOpConversion(LLVMTypeConverter &converter,
-                   const mlir::triton::NVIDIA::TargetInfo &targetInfo, int computeCapability,
+                   const ::mlir::triton::TargetInfoBase &targetInfo, int computeCapability,
                    ModuleAxisInfoAnalysis &axisAnalysisPass,
                    PatternBenefit benefit = 1)
       : mlir::ConvertOpToLLVMPattern<triton::LoadOp>(converter, benefit),
         computeCapability(computeCapability),
-        LoadStoreConversionBase(targetInfo, axisAnalysisPass) {}
+        LoadStoreConversionBase(static_cast<const mlir::triton::NVIDIA::TargetInfo&>(targetInfo), axisAnalysisPass) {}
 
   LogicalResult
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
@@ -405,12 +406,12 @@ protected:
 struct StoreOpConversion : public mlir::ConvertOpToLLVMPattern<triton::StoreOp>,
                           public LoadStoreConversionBase {
   StoreOpConversion(LLVMTypeConverter &converter,
-                   const mlir::triton::NVIDIA::TargetInfo &targetInfo, int computeCapability,
+                   const ::mlir::triton::TargetInfoBase &targetInfo, int computeCapability,
                    ModuleAxisInfoAnalysis &axisAnalysisPass,
                    PatternBenefit benefit = 1)
       : mlir::ConvertOpToLLVMPattern<triton::StoreOp>(converter, benefit),
         computeCapability(computeCapability),
-        LoadStoreConversionBase(targetInfo, axisAnalysisPass) {}
+        LoadStoreConversionBase(static_cast<const mlir::triton::NVIDIA::TargetInfo&>(targetInfo), axisAnalysisPass) {}
 
   LogicalResult
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
@@ -590,11 +591,11 @@ struct AtomicCASOpConversion
     : public mlir::ConvertOpToLLVMPattern<triton::AtomicCASOp>,
       public LoadStoreConversionBase {
   AtomicCASOpConversion(LLVMTypeConverter &converter,
-                        const mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                        const ::mlir::triton::TargetInfoBase &targetInfo,
                         ModuleAxisInfoAnalysis &axisAnalysisPass,
                         PatternBenefit benefit = 1)
       : mlir::ConvertOpToLLVMPattern<triton::AtomicCASOp>(converter, benefit),
-        LoadStoreConversionBase(targetInfo, axisAnalysisPass) {}
+        LoadStoreConversionBase(static_cast<const mlir::triton::NVIDIA::TargetInfo&>(targetInfo), axisAnalysisPass) {}
 
   LogicalResult
   matchAndRewrite(triton::AtomicCASOp op, OpAdaptor adaptor,
@@ -729,11 +730,11 @@ struct AtomicRMWOpConversion
   bool disableLDAcquireLowering = false;
       
   AtomicRMWOpConversion(LLVMTypeConverter &converter,
-                        const mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                        const ::mlir::triton::TargetInfoBase &targetInfo,
                         ModuleAxisInfoAnalysis &axisAnalysisPass,
                         PatternBenefit benefit = 1)
       : mlir::ConvertOpToLLVMPattern<triton::AtomicRMWOp>(converter, benefit),
-        LoadStoreConversionBase(targetInfo, axisAnalysisPass) {}
+        LoadStoreConversionBase(static_cast<const mlir::triton::NVIDIA::TargetInfo&>(targetInfo), axisAnalysisPass) {}
 
   bool supportsVectorized(RMWOp opType, Type elementType) const {
     // vectorized atomics are only supported on hopper,
@@ -1153,11 +1154,11 @@ struct AsyncCopyGlobalToLocalOpConversion
     : public mlir::ConvertOpToLLVMPattern<triton::gpu::AsyncCopyGlobalToLocalOp>,
       public LoadStoreConversionBase {
   AsyncCopyGlobalToLocalOpConversion(LLVMTypeConverter &converter,
-                                     const mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                     const ::mlir::triton::TargetInfoBase &targetInfo,
                                      ModuleAxisInfoAnalysis &axisAnalysisPass,
                                      PatternBenefit benefit = 1)
       : ConvertOpToLLVMPattern(converter, benefit),
-        LoadStoreConversionBase(targetInfo, axisAnalysisPass) {}
+        LoadStoreConversionBase(static_cast<const mlir::triton::NVIDIA::TargetInfo&>(targetInfo), axisAnalysisPass) {}
 
   LogicalResult
   matchAndRewrite(triton::gpu::AsyncCopyGlobalToLocalOp op, OpAdaptor adaptor,
@@ -1303,18 +1304,17 @@ static LinearLayout getMsgToPackedOffsetLayout(ttg::MemDescType ty) {
   auto kBlock = StringAttr::get(ctx, "block");
   auto shapePerCTA = ttg::getShapePerCTA(ty);
   int rank = shapePerCTA.size();
-  auto blockShape = ttng::getTMABlockShape(ty, /*packedSize=*/true);
+  auto blockShape = ::mlir::triton::nvidia_gpu::getTMABlockShape(ty, /*packedSize=*/true);
   auto outDimNames = standardOutDimNames(ctx, rank);
   LinearLayout msgToOffset;
   for (int dim = 0; dim < rank; ++dim) {
-    msgToOffset *=
-        LinearLayout::strided1D(shapePerCTA[dim] / blockShape[dim],
-                                blockShape[dim], kMsg, outDimNames[dim]);
+    msgToOffset = msgToOffset * LinearLayout::strided1D(static_cast<int32_t>(shapePerCTA[dim] / blockShape[dim]),
+                                static_cast<int32_t>(blockShape[dim]), kMsg, outDimNames[dim]);
   }
   auto ctaLayout = getCTALayout(ty.getEncoding());
   for (int i = 0; i < rank; ++i) {
     auto dim = ctaLayout.getCTAOrder()[i];
-    msgToOffset *= LinearLayout::identity1D(ctaLayout.getCTASplitNum()[dim],
+    msgToOffset = msgToOffset * LinearLayout::identity1D(static_cast<int32_t>(ctaLayout.getCTASplitNum()[dim]),
                                             kBlock, outDimNames[dim]);
   }
   return msgToOffset;
@@ -1616,7 +1616,7 @@ static LogicalResult iterateGatherScatterIndices(
 
   // Each gather4 instructions reads contigDimSize columns, 4 rows at a time.
   auto shapePerCTA = ttg::getShapePerCTA(smemType);
-  auto tmaBlockShape = ttng::getTMABlockShape(smemType, /*packedSize=*/true);
+  auto tmaBlockShape = ::mlir::triton::nvidia_gpu::getTMABlockShape(smemType, /*packedSize=*/true);
   unsigned innerBlockSize = shapePerCTA.back();
   unsigned contigDimSize = tmaBlockShape.back();
   unsigned numMessagesPerRow = ceil<unsigned>(innerBlockSize, contigDimSize);
@@ -1774,9 +1774,12 @@ struct TMAStoreWaitOpConversion
 
 // Fix the function signature to match the declaration in Utility.h
 void mlir::triton::NVIDIA::populateLoadStoreOpToLLVMPatterns(
-    mlir::LLVMTypeConverter &typeConverter, const TargetInfo &targetInfo,
-    int computeCapability, mlir::RewritePatternSet &patterns,
-    mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis, mlir::PatternBenefit benefit) {
+    mlir::LLVMTypeConverter &typeConverter,
+    const ::mlir::triton::TargetInfoBase &targetInfo,
+    int computeCapability,
+    mlir::RewritePatternSet &patterns,
+    mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
+    mlir::PatternBenefit benefit) {
   patterns.add<AsyncCopyGlobalToLocalOpConversion, AtomicCASOpConversion,
                AtomicRMWOpConversion>(typeConverter, targetInfo,
                                       axisInfoAnalysis, benefit);
@@ -1784,11 +1787,11 @@ void mlir::triton::NVIDIA::populateLoadStoreOpToLLVMPatterns(
                                                   computeCapability,
                                                   axisInfoAnalysis, benefit);
   patterns.add<AsyncCommitGroupOpConversion>(typeConverter, benefit);
-  patterns.add<AsyncWaitOpConversion>(typeConverter, benefit);
+  // patterns.add<AsyncWaitOpConversion>(typeConverter, benefit); // Removed - class not defined
   patterns.add<AsyncWaitGroupOpConversion>(typeConverter, benefit);
   patterns.add<AsyncTMACopyGlobalToLocalOpConversion,
                AsyncTMACopyLocalToGlobalOpConversion,
                AsyncTMAGatherOpConversion,
-               AsyncTMAScatterOpConversion, TMAStoreWaitOpConversion>(
-      typeConverter, benefit);
+               AsyncTMAScatterOpConversion>(typeConverter, benefit);
+  patterns.add<TMAStoreWaitOpConversion>(typeConverter, benefit);
 }

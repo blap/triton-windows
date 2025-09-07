@@ -13,14 +13,8 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/IR/Types.h"
 
-// Forward declare TargetInfo to avoid include issues
-namespace mlir {
-namespace triton {
-namespace NVIDIA {
-class TargetInfo;
-}
-}
-}
+// Include TargetInfoBase for proper type handling
+#include "triton/Conversion/TritonGPUToLLVM/TargetInfoBase.h"
 
 // Use full namespace qualification for types
 namespace mlir {
@@ -37,17 +31,17 @@ void populateClusterOpsToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
                                       ::mlir::PatternBenefit benefit);
 
 void populateConvertLayoutOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
-                                           const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                           const ::mlir::triton::TargetInfoBase &targetInfo,
                                            ::mlir::RewritePatternSet &patterns,
                                            ::mlir::PatternBenefit benefit);
 
 void populateMemoryOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
-                                    const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                    const ::mlir::triton::TargetInfoBase &targetInfo,
                                     ::mlir::RewritePatternSet &patterns,
                                     ::mlir::PatternBenefit benefit);
 
 void populateConvertLayoutOpToLLVMOptimizedPatterns(
-    ::mlir::LLVMTypeConverter &typeConverter, const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+    ::mlir::LLVMTypeConverter &typeConverter, const ::mlir::triton::TargetInfoBase &targetInfo,
     ::mlir::RewritePatternSet &patterns, ::mlir::PatternBenefit benefit);
 
 void populateDotOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
@@ -57,14 +51,14 @@ void populateDotOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
 void populateElementwiseOpToLLVMPatterns(
     ::mlir::LLVMTypeConverter &typeConverter, ::mlir::RewritePatternSet &patterns,
     ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
-    const ::mlir::triton::NVIDIA::TargetInfo &targetInfo, ::mlir::PatternBenefit benefit);
+    const ::mlir::triton::TargetInfoBase &targetInfo, ::mlir::PatternBenefit benefit);
 
 void populateFp4ToFpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
                                    ::mlir::RewritePatternSet &patterns,
                                    ::mlir::PatternBenefit benefit);
 
 void populateLoadStoreOpToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
-                                       const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                                       const ::mlir::triton::TargetInfoBase &targetInfo,
                                        int computeCapability,
                                        ::mlir::RewritePatternSet &patterns,
                                        ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
@@ -75,7 +69,7 @@ void populateTensorPtrOpsToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter
                                         ::mlir::PatternBenefit benefit);
 
 void populateTMAToLLVMPatterns(::mlir::LLVMTypeConverter &typeConverter,
-                               const ::mlir::triton::NVIDIA::TargetInfo &targetInfo,
+                               const ::mlir::triton::TargetInfoBase &targetInfo,
                                ::mlir::RewritePatternSet &patterns,
                                ::mlir::PatternBenefit benefit);
 

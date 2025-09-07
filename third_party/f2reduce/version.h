@@ -1,0 +1,6 @@
+#ifndef F2REDUCE_VERSION_H
+#define F2REDUCE_VERSION_H
+
+#define F2REDUCE_VERSION "1.0.0"
+
+#endif // F2REDUCE_VERSION_H

@@ -387,8 +387,12 @@ void init_gluon_ir(py::module &&m) {
       .def("create_async_tma_copy_local_to_global",
            [](GluonOpBuilder &self, Value descPtr, std::vector<Value> &coord,
               Value src) {
+             // Add a default true predicate value to match the expected signature
+             auto trueVal = self.create<mlir::arith::ConstantOp>(
+                 self.getBuilder().getI1Type(), 
+                 self.getBuilder().getBoolAttr(true));
              self.create<ttng::AsyncTMACopyLocalToGlobalOp>(descPtr, coord,
-                                                            src);
+                                                            src, trueVal);
            })
       .def("create_async_tma_reduce",
            [](GluonOpBuilder &self, triton::DescriptorReduceKind kind,

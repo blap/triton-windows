@@ -16,6 +16,8 @@
 
 // Fixed path to reference the correct location of Utility.h
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Utility.h"
+// Include TargetInfo.h for NVIDIA::TargetInfo
+#include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/TargetInfo.h"
 
 // Added missing headers for type definitions
 #include "mlir/IR/Builders.h"
@@ -232,7 +234,7 @@ struct TensormapFenceproxyAcquireOpConversion
 
 void zero_fill_tma(Location loc, MLIRContext *ctx,
                    ConversionPatternRewriter &rewriter,
-                   const NVIDIA::TargetInfo &targetInfo, Value descPtr) {
+                   const ::mlir::triton::TargetInfoBase &targetInfo, Value descPtr) {
   auto b = TritonLLVMOpBuilder(loc, rewriter);
   // Write out zeros
   constexpr int kWarpSize = 32;
@@ -248,10 +250,10 @@ void zero_fill_tma(Location loc, MLIRContext *ctx,
 
 struct TensormapCreateOpConversion
     : public ConvertOpToLLVMPattern<triton::nvidia_gpu::TensormapCreateOp> {
-  const NVIDIA::TargetInfo &targetInfo;
+  const ::mlir::triton::TargetInfoBase &targetInfo;
 
   TensormapCreateOpConversion(LLVMTypeConverter &converter,
-                              const NVIDIA::TargetInfo &targetInfo,
+                              const ::mlir::triton::TargetInfoBase &targetInfo,
                               PatternBenefit benefit)
       : ConvertOpToLLVMPattern(converter, benefit), targetInfo(targetInfo) {}
 
@@ -262,7 +264,7 @@ struct TensormapCreateOpConversion
     auto b = TritonLLVMOpBuilder(loc, rewriter);
     auto ctx = op.getContext();
 
-    bool needsStrideWorkaround = targetInfo.getPtxVersion() <= 85;
+    bool needsStrideWorkaround = static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo).getPtxVersion() <= 85;
     auto smemBase = LLVM::getSharedMemoryBase(loc, rewriter, targetInfo, op);
 
     zero_fill_tma(loc, ctx, rewriter, targetInfo, smemBase);
@@ -322,8 +324,10 @@ struct ReinterpretTensorDescOpConversion
 } // namespace
 
 void mlir::triton::NVIDIA::populateTMAToLLVMPatterns(
-    LLVMTypeConverter &typeConverter, const TargetInfo &targetInfo,
-    RewritePatternSet &patterns, PatternBenefit benefit) {
+    ::mlir::LLVMTypeConverter &typeConverter,
+    const ::mlir::triton::TargetInfoBase &targetInfo,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit) {
   patterns.add<TensormapCreateOpConversion>(typeConverter, targetInfo, benefit);
   patterns.add<TensormapFenceproxyAcquireOpConversion,
                ReinterpretTensorDescOpConversion>(typeConverter, benefit);

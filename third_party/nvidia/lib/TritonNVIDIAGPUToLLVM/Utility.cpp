@@ -21,7 +21,7 @@
 #include "mlir/IR/TypeRange.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/FunctionInterfaces.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 

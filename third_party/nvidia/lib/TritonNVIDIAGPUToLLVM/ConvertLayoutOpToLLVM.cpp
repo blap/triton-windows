@@ -237,11 +237,13 @@ private:
 } // namespace
 
 void mlir::triton::NVIDIA::populateConvertLayoutOpToLLVMPatterns(
-    LLVMTypeConverter &typeConverter, const TargetInfo &targetInfo,
-    RewritePatternSet &patterns, PatternBenefit benefit) {
+    ::mlir::LLVMTypeConverter &typeConverter,
+    const ::mlir::triton::TargetInfoBase &targetInfo,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit) {
   // Give this convertLayoutOpConversion a higher benefit as it only matches
   // optimized or cross CTA cases
-  patterns.add<ConvertLayoutOpConversion>(typeConverter, targetInfo,
+  patterns.add<ConvertLayoutOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                           benefit.getBenefit() + 1);
   mlir::triton::populateConvertLayoutOpToLLVMPatterns(typeConverter, targetInfo,
                                                       patterns, benefit);

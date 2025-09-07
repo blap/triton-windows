@@ -12,6 +12,13 @@ from triton.tools.tensor_descriptor import TensorDescriptor
 from triton import CompilationError
 
 
+# Add a skip condition for tensor memory descriptors which require compute capability >= 7.0
+pytestmark = pytest.mark.skipif(
+    is_cuda() and torch.cuda.get_device_capability()[0] < 7,
+    reason="Tensor memory descriptors require compute capability >= 7.0"
+)
+
+
 @pytest.mark.interpreter
 @pytest.mark.parametrize("dtype_str", tma_dtypes)
 @pytest.mark.parametrize("num_ctas", [1, 2])

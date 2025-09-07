@@ -141,7 +141,8 @@ public:
 } // anonymous namespace
 
 void mlir::triton::NVIDIA::populateFp4ToFpToLLVMPatterns(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    PatternBenefit benefit) {
+    ::mlir::LLVMTypeConverter &typeConverter,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit) {
   patterns.add<Fp4ToFpOpPattern>(typeConverter, benefit);
 }

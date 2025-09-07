@@ -707,9 +707,10 @@ namespace mlir {
 namespace triton {
 namespace NVIDIA {
 
-void populateTCGen5MMAOpToLLVMPattern(LLVMTypeConverter &typeConverter,
-                                      RewritePatternSet &patterns,
-                                      PatternBenefit benefit) {
+void mlir::triton::NVIDIA::populateTCGen5MMAOpToLLVMPattern(
+    ::mlir::LLVMTypeConverter &typeConverter,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::PatternBenefit benefit) {
   patterns.add<TCGen5MMAOpConversion, TCGen5MMAScaledOpConversion>(
       typeConverter, benefit);
 }

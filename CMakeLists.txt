@@ -25,7 +25,17 @@ option(TRITON_BUILD_PROTON "Build the Triton Proton profiler" OFF)
 # Disabled unit tests and ccache by default for Windows build simplification
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" OFF)
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" OFF)
-set(TRITON_CODEGEN_BACKENDS "nvidia" CACHE STRING "Enable different codegen backends")
+# Allow disabling backends
+option(TRITON_DISABLE_NVIDIA_BACKEND "Disable NVIDIA backend" OFF)
+
+# Set default backends if not specified
+if(NOT DEFINED TRITON_CODEGEN_BACKENDS)
+  if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
+    set(TRITON_CODEGEN_BACKENDS "nvidia")
+  else()
+    set(TRITON_CODEGEN_BACKENDS "")
+  endif()
+endif()
 
 if(TRITON_BUILD_WITH_CCACHE)
   find_program(CCACHE_PROGRAM ccache)
@@ -55,7 +65,7 @@ endif()
 
 # Customized release build type with assertions: TritonRelBuildWithAsserts
 set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
-set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
+set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2 /std:c++17 /Zc:__cplusplus")
 
 # Default build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -73,7 +83,7 @@ endif()
 
 # Compiler flags
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8 /std:c++17 /Zc:__cplusplus")
 
 
 # #########
@@ -127,7 +137,7 @@ endfunction()
 
 
 # Disable warnings that show up in external code (gtest;pybind11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624 /std:c++17 /Zc:__cplusplus")
 
 include_directories(".")
 include_directories(${MLIR_INCLUDE_DIRS})
@@ -136,9 +146,11 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include) # Tablegen'd files
 include_directories(${PROJECT_SOURCE_DIR}/third_party)
 include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
-# Add NVIDIA backend include paths
-include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)
-include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)
+# Add NVIDIA backend include paths conditionally
+if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
+  include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)
+  include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)
+endif()
 
 # link_directories(${LLVM_LIBRARY_DIR})
 add_subdirectory(include)
@@ -165,7 +177,15 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   # Python Interpreter is used to run lit tests
   find_package(Python3 REQUIRED COMPONENTS Development.Module Interpreter)
-  find_package(pybind11 CONFIG REQUIRED HINTS "${Python3_SITELIB}")
+  # Updated for pybind11 3.0.1 compatibility
+  if(DEFINED PYBIND11_DIR)
+    find_package(pybind11 REQUIRED PATHS ${PYBIND11_DIR} NO_DEFAULT_PATH)
+  else()
+    find_package(pybind11 REQUIRED)
+  endif()
+
+  # Add the python/src subdirectory to build the libtriton module
+  add_subdirectory(python/src)
 
   if (DEFINED TRITON_PLUGIN_DIRS)
     foreach(PLUGIN_DIR ${TRITON_PLUGIN_DIRS})
@@ -184,36 +204,14 @@ if(TRITON_BUILD_PYTHON_MODULE)
     endforeach()
   endif()
 
-  foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
-    add_subdirectory(third_party/${CODEGEN_BACKEND})
-  endforeach()
+  # Only add NVIDIA backend if not disabled
+  if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
+    foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
+      add_subdirectory(third_party/${CODEGEN_BACKEND})
+    endforeach()
+  endif()
 
   if (TRITON_BUILD_PROTON)
     add_subdirectory(third_party/proton)
-    # We always build proton dialect
-    list(APPEND TRITON_PLUGIN_NAMES "proton")
-    add_subdirectory(third_party/proton/dialect)
-    # Add preprocessor definition when Proton is enabled - Windows build enhancement
-    add_compile_definitions(TRITON_BUILD_PROTON)
   endif()
-
-  get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
-  get_property(triton_plugins GLOBAL PROPERTY TRITON_PLUGINS)
-  set(TRITON_LIBRARIES
-    ${triton_libs}
-    ${triton_plugins})
-
-endif()
-
-# set_target_properties(triton PROPERTIES
-  # LINKER_LANGUAGE CXX
-  # OUTPUT_NAME triton
-  # )
-
-if(TRITON_BUILD_BINARY)
-  add_subdirectory(bin)
-endif()
-
-if(TRITON_BUILD_UT)
-  add_subdirectory(unittest)
 endif()
