@@ -7,10 +7,10 @@ add_triton_library(TritonNVIDIAGPUToLLVM
     DotOpToLLVM/WGMMA.cpp
     DotOpToLLVM.cpp
     ElementwiseOpToLLVM.cpp
-    LoadStoreOpToLLVM.cpp  # Uncommented problematic file
+    LoadStoreOpToLLVM.cpp
     BarrierOpToLLVM.cpp
     TritonGPUToLLVM.cpp
-    TMAToLLVM.cpp  # Uncommented TMA-related file
+    TMAToLLVM.cpp
     SPMDOpToLLVM.cpp
     TensorMemoryToLLVM.cpp
     TensorPtrOpsToLLVM.cpp
@@ -29,6 +29,7 @@ add_triton_library(TritonNVIDIAGPUToLLVM
     TritonGPUToLLVM
     MLIRReconcileUnrealizedCasts
     MLIRMathToLLVM
+    MLIRUBToLLVM
 )
 
 if (TRITON_BUILD_PROTON)

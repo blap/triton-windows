@@ -1,5 +1,13 @@
+try:
+    from triton._C.libtriton import ir, passes, llvm, nvidia
+    NVIDIA_BACKEND_AVAILABLE = True
+except ImportError:
+    # NVIDIA backend not available, import only what we can
+    from triton._C.libtriton import ir, passes, llvm
+    nvidia = None
+    NVIDIA_BACKEND_AVAILABLE = False
+
 from triton.backends.compiler import BaseBackend, GPUTarget, Language
-from triton._C.libtriton import ir, passes, llvm, nvidia
 from triton import knobs
 from triton.runtime.errors import PTXASError
 
@@ -153,7 +161,7 @@ class CUDABackend(BaseBackend):
 
     @staticmethod
     def supports_target(target: GPUTarget):
-        return target.backend == 'cuda'
+        return target.backend == 'cuda' and NVIDIA_BACKEND_AVAILABLE
 
     def _parse_arch(self, arch):
         pattern = r"^sm(\d+)$"
@@ -167,6 +175,8 @@ class CUDABackend(BaseBackend):
         return f"cuda:{capability}"
 
     def __init__(self, target: GPUTarget) -> None:
+        if not NVIDIA_BACKEND_AVAILABLE:
+            raise RuntimeError("NVIDIA backend is not available")
         super().__init__(target)
         self.binary_ext = "cubin"
 

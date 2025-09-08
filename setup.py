@@ -474,6 +474,11 @@ class CMakeBuild(build_ext):
             "-DTRITON_PLUGIN_DIRS=" + ';'.join([b.src_dir for b in backends if b.is_external]),
             "-DTRITON_WHEEL_DIR=" + wheeldir
         ]
+        
+        # Disable NVIDIA backend if requested
+        if check_env_flag("TRITON_DISABLE_NVIDIA_BACKEND", "0"):
+            cmake_args.append("-DTRITON_DISABLE_NVIDIA_BACKEND=ON")
+            
         if lit_dir is not None:
             cmake_args.append("-DLLVM_EXTERNAL_LIT=" + lit_dir)
         cmake_args.extend(thirdparty_cmake_args)

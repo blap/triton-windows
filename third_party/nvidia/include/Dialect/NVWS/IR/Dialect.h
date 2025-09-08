@@ -7,7 +7,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 // Updated include paths for pybind11 3.0.1 compatibility and proper CMake build support
-#include "third_party/nvidia/include/Dialect/NVWS/IR/Dialect.h.inc"
+#include "Dialect.h.inc"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
@@ -15,16 +15,16 @@
 
 #define GET_ATTRDEF_CLASSES
 // Updated include paths for pybind11 3.0.1 compatibility and proper CMake build support
-#include "third_party/nvidia/include/Dialect/NVWS/IR/NVWSAttrDefs.h.inc"
-#include "third_party/nvidia/include/Dialect/NVWS/IR/NVWSAttrEnums.h.inc"
+#include "NVWSAttrDefs.h.inc"
+#include "NVWSAttrEnums.h.inc"
 
 #define GET_TYPEDEF_CLASSES
 // Updated include paths for pybind11 3.0.1 compatibility and proper CMake build support
-#include "third_party/nvidia/include/Dialect/NVWS/IR/Types.h.inc"
+#include "Types.h.inc"
 
 #define GET_OP_CLASSES
 // Updated include paths for pybind11 3.0.1 compatibility and proper CMake build support
-#include "third_party/nvidia/include/Dialect/NVWS/IR/Ops.h.inc"
+#include "Ops.h.inc"
 
 namespace mlir {
 namespace triton {
