@@ -5,6 +5,15 @@
 #include "mlir/IR/PatternMatch.h"
 #include "triton/Analysis/AxisInfo.h"
 
+// Add missing includes for proper type resolution
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/Support/LogicalResult.h"
+#include "mlir/Support/LLVM.h"
+
 // Add missing includes for LLVM types
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -81,6 +90,7 @@ void populateClampFOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,
                                    ::mlir::RewritePatternSet &patterns,
                                    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
                                    int computeCapability,
+                                   const ::mlir::triton::TargetInfoBase &targetInfo,
                                    ::mlir::PatternBenefit benefit);
 
 void populateTCGen5MMAOpToLLVMPattern(::mlir::LLVMTypeConverter &typeConverter,

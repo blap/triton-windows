@@ -135,6 +135,9 @@ function Clean-BuildArtifacts {
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -Path $scriptPath
 
+# Add ninja to PATH
+$env:PATH = "$pwd\ninja-install;$env:PATH"
+
 Write-Log "Starting Triton Windows build (Core Only)..." -Color "Green"
 Write-Log "Working directory: $(Get-Location)" -Color "Gray"
 
@@ -231,13 +234,55 @@ if (!(Test-Path "build")) {
 
 # Configure with CMake, disabling NVIDIA backend
 Write-Log "Configuring with CMake..." -Color "Cyan"
-& cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -DTRITON_DISABLE_NVIDIA_BACKEND=ON -B build .
+
+# Set up Visual Studio environment properly
+$vcVarsPath = "$vs\VC\Auxiliary\Build\vcvars64.bat"
+if (Test-Path $vcVarsPath) {
+    Write-Log "Setting up Visual Studio environment..." -Color "Yellow"
+    # Run vcvars64.bat to set up the environment
+    cmd /c """$vcVarsPath"" && set" | ForEach-Object {
+        if ($_ -match "^(.+)=(.*)$") {
+            $varName = $matches[1]
+            $varValue = $matches[2]
+            if ($varName) {
+                try {
+                    [System.Environment]::SetEnvironmentVariable($varName, $varValue, "Process")
+                } catch {
+                    # Ignore errors for invalid variable names
+                }
+            }
+        }
+    }
+}
+
+& cmake -G "Ninja" -DCMAKE_MAKE_PROGRAM="$pwd\ninja-install\ninja.exe" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -DTRITON_DISABLE_NVIDIA_BACKEND=ON -B build .
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorAndExit "CMake configuration failed"
 }
 
 # Build with Ninja
 Write-Log "Building with Ninja..." -Color "Cyan"
+# Clean any existing build files that might cause permission issues
+if (Test-Path "build\build.ninja") {
+    Write-Log "Removing existing build.ninja to prevent permission issues..." -Color "Yellow"
+    Remove-Item "build\build.ninja" -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path "build\.ninja_deps") {
+    Write-Log "Removing existing .ninja_deps to prevent permission issues..." -Color "Yellow"
+    Remove-Item "build\.ninja_deps" -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path "build\.ninja_log") {
+    Write-Log "Removing existing .ninja_log to prevent permission issues..." -Color "Yellow"
+    Remove-Item "build\.ninja_log" -Force -ErrorAction SilentlyContinue
+}
+
+& cmake -G "Ninja" -DCMAKE_MAKE_PROGRAM="$pwd\ninja-install\ninja.exe" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -DTRITON_DISABLE_NVIDIA_BACKEND=ON -B build .
+if ($LASTEXITCODE -ne 0) {
+    Write-ErrorAndExit "CMake configuration failed"
+}
+
+# Build with Ninja, targeting only libtriton to avoid mlir-doc issues
+Write-Log "Building with Ninja (libtriton target only)..." -Color "Cyan"
 & cmake --build build --target libtriton
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorAndExit "Ninja build failed"

@@ -89,6 +89,49 @@ function Find-VisualStudio {
     return $null
 }
 
+function Setup-VisualStudioEnvironment {
+    param([string]$vs)
+    
+    Write-Log "Setting up Visual Studio environment..." -Color "Cyan"
+    
+    # Use vcvars64.bat to set up the environment properly
+    $vcVarsPath = "$vs\VC\Auxiliary\Build\vcvars64.bat"
+    if (Test-Path $vcVarsPath) {
+        Write-Log "Running vcvars64.bat to set up environment..." -Color "Yellow"
+        # Run vcvars64.bat to set up the environment and capture the output
+        cmd /c """$vcVarsPath"" && set" | ForEach-Object {
+            if ($_ -match "^(.+)=(.*)$") {
+                $varName = $matches[1]
+                $varValue = $matches[2]
+                # Skip empty variable names
+                if ($varName) {
+                    try {
+                        [System.Environment]::SetEnvironmentVariable($varName, $varValue, "Process")
+                    } catch {
+                        # Ignore errors for invalid variable names
+                    }
+                }
+            }
+        }
+        Write-Log "Visual Studio environment variables set via vcvars" -Color "Green"
+    } else {
+        Write-Log "Warning: vcvars64.bat not found at $vcVarsPath" -Color "Yellow"
+    }
+    
+    # Explicitly set INCLUDE paths for Windows SDK and Visual Studio C++ headers
+    $windowsSdkVersion = "10.0.19041.0"
+    $windowsSdkPath = "C:\Program Files (x86)\Windows Kits\10\Include\$windowsSdkVersion"
+    $msvcVersion = "14.44.35207"
+    $msvcIncludePath = "$vs\VC\Tools\MSVC\$msvcVersion\include"
+    $msvcATLPath = "$vs\VC\Tools\MSVC\$msvcVersion\atlmfc\include"
+    
+    if ((Test-Path $windowsSdkPath) -and (Test-Path $msvcIncludePath)) {
+        # Set INCLUDE paths for both Windows SDK and Visual Studio C++
+        $env:INCLUDE = "$msvcIncludePath;$msvcATLPath;$windowsSdkPath\ucrt;$windowsSdkPath\um;$windowsSdkPath\shared;$windowsSdkPath\winrt;$windowsSdkPath\cppwinrt;$env:INCLUDE"
+        Write-Log "Updated INCLUDE environment variable with Windows SDK and Visual Studio C++ paths" -Color "Green"
+    }
+}
+
 function Find-CudaToolkit {
     Write-Log "Finding CUDA Toolkit..." -Color "Cyan"
     
@@ -189,7 +232,7 @@ function Test-WheelMetadata {
         if ($wheelFile) {
             $content = Get-Content $wheelFile.FullName
             Write-Log "Wheel metadata:" -Color "Gray"
-            $content | ForEach-Object { Write-Log "  $_" -Color "Gray" }
+            $content | ForEach-Object { Write-Log "  $($_.Line)" -Color "Gray" }
         }
         
         # Check for triton package
@@ -330,6 +373,9 @@ function Clean-BuildArtifacts {
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -Path $scriptPath
 
+# Add ninja to PATH
+$env:PATH = "$pwd\ninja-install;$env:PATH"
+
 Write-Log "Starting Triton Windows build..." -Color "Green"
 Write-Log "Working directory: $(Get-Location)" -Color "Gray"
 
@@ -355,6 +401,9 @@ if (-not $vs) {
 }
 Write-Log "Using Visual Studio: $vs" -Color "Green"
 
+# Set up Visual Studio environment
+Setup-VisualStudioEnvironment -vs $vs
+
 # Configure MSVC
 $msvc = Get-ChildItem "$vs\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1
 if (-not $msvc) {
@@ -362,10 +411,6 @@ if (-not $msvc) {
 }
 $msvcVersion = $msvc.Name
 Write-Log "Using MSVC: $msvcVersion" -Color "Green"
-
-# Configure environment
-$env:CC = "$vs\VC\Tools\MSVC\$msvcVersion\bin\Hostx64\x64\cl.exe"
-$env:CXX = "$vs\VC\Tools\MSVC\$msvcVersion\bin\Hostx64\x64\cl.exe"
 
 # Find CUDA Toolkit
 if (-not $DisableNvidia) {
@@ -437,6 +482,26 @@ if (Test-Path $llvmPath) {
     Write-ErrorAndExit "LLVM not found at $llvmPath"
 }
 
+# Ensure Ninja is in PATH
+$ninjaPath = (Get-Command ninja -ErrorAction SilentlyContinue).Source
+if (-not $ninjaPath) {
+    # Try to find ninja in common locations
+    $ninjaPaths = @(
+        "C:\Users\Admin\AppData\Roaming\Python\Python312\Scripts\ninja.exe",
+        "C:\Program Files\Python312\Scripts\ninja.exe"
+    )
+    
+    foreach ($path in $ninjaPaths) {
+        if (Test-Path $path) {
+            $env:PATH = "$path;$env:PATH"
+            Write-Log "Added Ninja to PATH: $path" -Color "Green"
+            break
+        }
+    }
+} else {
+    Write-Log "Ninja found in PATH: $ninjaPath" -Color "Green"
+}
+
 # Clean previous builds
 Write-Log "[1/5] Cleaning build cache..." -Color "Cyan"
 Get-ChildItem -Path "." -Recurse -Name "__pycache__" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -453,7 +518,32 @@ if (!(Test-Path "build")) {
 
 # Configure with CMake
 Write-Log "Configuring with CMake..." -Color "Cyan"
-& cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -B build .
+# Ensure we're in the correct directory for CMake
+Set-Location -Path $scriptPath
+$currentDir = Get-Location
+Write-Log "Current directory: $currentDir" -Color "Gray"
+Write-Log "Build directory: $currentDir\build" -Color "Gray"
+Write-Log "Source directory: $currentDir" -Color "Gray"
+
+# Find Ninja executable
+$ninjaExe = "$pwd\ninja-install\ninja.exe"
+if (-not (Test-Path $ninjaExe)) {
+    $ninjaExe = (Get-Command ninja -ErrorAction SilentlyContinue).Source
+}
+if (-not $ninjaExe) {
+    Write-ErrorAndExit "Ninja executable not found"
+}
+
+# Check if we're in a Visual Studio environment
+if ($env:VSCMD_VER) {
+    Write-Log "Running in Visual Studio Developer Command Prompt" -Color "Green"
+    # Use the environment variables set by Visual Studio
+    & cmake -G "Ninja" -DCMAKE_MAKE_PROGRAM="$ninjaExe" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -B build .
+} else {
+    Write-Log "Using pre-configured Visual Studio environment" -Color "Yellow"
+    # Let CMake auto-detect the compilers from the environment
+    & cmake -G "Ninja" -DCMAKE_MAKE_PROGRAM="$ninjaExe" -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$env:LLVM_DIR" -DMLIR_DIR="$env:MLIR_DIR" -DPYBIND11_DIR="$pybind11CmakeDir" -B build .
+}
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorAndExit "CMake configuration failed"
 }

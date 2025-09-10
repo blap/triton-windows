@@ -9,22 +9,15 @@
 
 #include "PatternTritonGPUOpToLLVM.h"
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/PTXAsmFormat.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/ValueRange.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Conversion/TritonGPUToLLVM/ElementwiseOpToLLVMBase.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
-#include "triton/Dialect/Triton/IR/Ops.h.inc"
-#include "triton/Dialect/Triton/IR/OpsEnums.h.inc"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include <array>
-
-// Add missing MLIR includes
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/Support/LogicalResult.h"
-#include "mlir/Support/LLVM.h"
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Location.h"
@@ -33,9 +26,6 @@
 #include <optional>
 #include <string>
 #include <cassert>
-#include <vector>
-#include "mlir/IR/Types.h"
-#include "mlir/IR/TypeUtilities.h"
 
 using namespace mlir;
 using namespace mlir::triton;
@@ -321,20 +311,18 @@ static const std::string S8_to_Bf16_sm90 =
     "sub.bf16x2 $1, h1, h2;          \n"
     "}";
 
-typedef std::function<llvm::SmallVector<Value>(Location, ConversionPatternRewriter &,
-                                         const llvm::SmallVector<Value> &)>
+typedef std::function<mlir::SmallVector<mlir::Value>(mlir::Location, mlir::ConversionPatternRewriter &,
+                                         const mlir::SmallVector<mlir::Value> &)>
     ConverterT;
 
-static std::function<llvm::SmallVector<mlir::Value>(mlir::Location, mlir::ConversionPatternRewriter &,
-                                         const llvm::SmallVector<mlir::Value> &)>
-makeConverterFromPtx(const std::string &ptxAsm, mlir::Type inType,
+static ConverterT makeConverterFromPtx(const std::string &ptxAsm, mlir::Type inType,
                                        mlir::Type outType,
                                        const int inVecWidthBits = 32,
                                        const int outVecWidthBits = 32) {
-  auto converter =
+  ConverterT converter =
       [ptxAsm, inType, outType, inVecWidthBits,
        outVecWidthBits](mlir::Location loc, mlir::ConversionPatternRewriter &rewriter,
-                        const llvm::SmallVector<mlir::Value> &v) -> llvm::SmallVector<mlir::Value> {
+                        const mlir::SmallVector<mlir::Value> &v) -> mlir::SmallVector<mlir::Value> {
     auto b = TritonLLVMOpBuilder(loc, rewriter);
     int numElements = v.size();
     assert(numElements == 4 || numElements == 2 && "invalid vector size");
@@ -345,7 +333,7 @@ makeConverterFromPtx(const std::string &ptxAsm, mlir::Type inType,
     // first, we pack `v` into 32-bit ints
     int inVecWidth = inVecWidthBits / inBitwidth;
     auto inVecTy = vec_ty(inType, inVecWidth);
-    llvm::SmallVector<mlir::Value> inPacked(numElements / inVecWidth, b.undef(inVecTy));
+    mlir::SmallVector<mlir::Value> inPacked(numElements / inVecWidth, b.undef(inVecTy));
     for (size_t i = 0; i < numElements; i++)
       inPacked[i / inVecWidth] = b.insert_element(
           inVecTy, inPacked[i / inVecWidth], v[i], b.i32_val(i % inVecWidth));
@@ -356,31 +344,31 @@ makeConverterFromPtx(const std::string &ptxAsm, mlir::Type inType,
     int outVecWidth = outVecWidthBits / outBitwidth;
     int outNums = numElements / outVecWidth;
     PTXBuilder builder;
-    llvm::SmallVector<PTXBuilder::Operand *> operands;
+    mlir::SmallVector<PTXBuilder::Operand *> operands;
     auto outConstraint = outVecWidthBits == 16 ? "=h" : "=r";
     auto inConstraint = inVecWidthBits == 16 ? "h" : "r";
     for (int i = 0; i < outNums; i++) {
       operands.push_back(builder.newOperand(outConstraint));
     }
 
-    for (Value inVal : inPacked) {
+    for (mlir::Value inVal : inPacked) {
       operands.push_back(builder.newOperand(inVal, inConstraint));
     }
 
     auto &ptxOp = *builder.create(ptxAsm);
     ptxOp(operands, /*onlyAttachMLIRArgs=*/true);
     auto outVecTy = vec_ty(outType, outVecWidth);
-    llvm::SmallVector<Value> outPacked;
+    mlir::SmallVector<mlir::Value> outPacked;
     if (outNums == 1)
       outPacked.push_back(builder.launch(rewriter, loc, outVecTy, false));
     else {
-      auto outStructTy = struct_ty(llvm::SmallVector<Type>(outNums, outVecTy));
+      auto outStructTy = struct_ty(mlir::SmallVector<mlir::Type>(outNums, outVecTy));
       auto outStruct = builder.launch(rewriter, loc, outStructTy, false);
       for (int i = 0; i < outNums; i++)
         outPacked.push_back(b.extract_val(outVecTy, outStruct, i));
     }
     // unpack the output
-    llvm::SmallVector<Value> ret;
+    mlir::SmallVector<mlir::Value> ret;
     for (size_t i = 0; i < numElements; i++)
       ret.push_back(b.extract_element(outType, outPacked[i / outVecWidth],
                                       b.i32_val(i % outVecWidth)));
@@ -713,66 +701,159 @@ struct ClampFOpConversion
 
   explicit ClampFOpConversion(LLVMTypeConverter &typeConverter,
                               ModuleAxisInfoAnalysis &axisAnalysisPass,
-                              const TargetInfoBase &targetInfo,
-                              PatternBenefit benefit = 1)
+                              int computeCapability,
+                              PatternBenefit benefit = patternBenefitDefault)
       : ElementwiseOpConversionBase(typeConverter, axisAnalysisPass, benefit),
-        targetInfo(targetInfo) {}
+        computeCapability(computeCapability) {}
 
-  SmallVector<Value> createDestOps(ClampFOp op, OpAdaptor adaptor,
-                                   ConversionPatternRewriter &rewriter,
-                                   Type elemTy, MultipleOperandsRange operands,
-                                   Location loc) const {
-    // Clip pattern not found, use min/max.
-    if (op.getPropagateNan() == PropagateNan::ALL) {
-      if (targetInfo.supportMaximumMinimum()) {
-        auto v = rewriter.create<LLVM::MaximumOp>(loc, elemTy, operands[0][0],
-                                                  operands[0][1]);
-        return {rewriter.create<LLVM::MinimumOp>(loc, v, operands[0][2])};
+  bool isClipPattern(ClampFOp op) const {
+    bool xorsignAbsAvailable = (computeCapability >= 90);
+    // Pattern matching the sequence of clamp(x, -limit, limit) to generate
+    // more efficient PTX code. NOTE: This pattern matching is not general
+    // enough, but it is sufficient. We detect only two cases here:
+    // 1. where the "-limit" is computed as 0 - limit:
+    //   %cst = arith.constant dense<0.000000e+00>
+    //   %8 = tt.load %7, %2
+    //   %11 = arith.subf %cst, %8
+    //   %12 = tt.clamp %5, %11, %8
+    // 2. where "-limit" and "limit" are constants.
+    //   %cst_6 = arith.constant dense<-6.0000e+00>
+    //   %cst_7 = arith.constant dense<6.0000e+00>
+    //   %160 = tt.clamp %158, %cst_6, %cst_7
+    bool patternFound = false;
+
+    auto getSplatInitializer = [](::mlir::Value v) -> std::optional<double> {
+      if (auto constOp = v.getDefiningOp<arith::ConstantOp>()) {
+        if (auto attr = ::mlir::dyn_cast<::mlir::DenseIntOrFPElementsAttr>(
+                constOp.getValueAttr())) {
+          if (attr.isSplat()) {
+            return attr.getSplatValue<::mlir::APFloat>().convertToDouble();
+          }
+        }
       }
-      // On pre-80 compute capability, we need to handle NaN propagation
-      // manually. We need to check only the first operand for clamp.
-      auto lhs = operands[0][0];
-      auto isNan = rewriter.create<LLVM::FCmpOp>(loc, LLVM::FCmpPredicate::une,
-                                                 lhs, lhs);
-      auto v = rewriter.create<LLVM::MaxNumOp>(loc, elemTy, operands[0][0],
-                                               operands[0][1]);
-      auto nonNanRes = rewriter.create<LLVM::MinNumOp>(loc, v, operands[0][2]);
-      auto nan = LLVM::createNaNConstant(loc, rewriter, elemTy);
-      // Select the result based on the isNan flag.
-      return {rewriter.create<LLVM::SelectOp>(loc, isNan, nan, nonNanRes)};
-    }
+      return std::nullopt;
+    };
 
-    // No NaN propagation.
-    assert(op.getPropagateNan() == PropagateNan::NONE);
-    auto v = rewriter.create<LLVM::MaxNumOp>(loc, elemTy, operands[0][0],
-                                             operands[0][1]);
-    return {rewriter.create<LLVM::MinNumOp>(loc, v, operands[0][2])};
+    if (xorsignAbsAvailable) {
+      if (auto subOp = op.getOperand(1).getDefiningOp<arith::SubFOp>()) {
+        if (subOp.getOperand(1) == op.getOperand(2)) {
+          auto initializer = getSplatInitializer(subOp.getOperand(0));
+          if (initializer.has_value() && initializer.value() == 0.0) {
+            patternFound = true;
+          }
+        }
+      } else {
+        auto initializer1 = getSplatInitializer(op.getOperand(1));
+        auto initializer2 = getSplatInitializer(op.getOperand(2));
+        if (initializer1.has_value() && initializer2.has_value() &&
+            initializer1.value() == -initializer2.value()) {
+          patternFound = true;
+        }
+      }
+    }
+    return patternFound;
   }
 
-protected:
-  const TargetInfoBase &targetInfo;
+  ::mlir::SmallVector<::mlir::Value> emitOptimization(ClampFOp op,
+                                      ::mlir::ConversionPatternRewriter &rewriter,
+                                      ::mlir::Type elemTy,
+                                      MultipleOperandsRange operands,
+                                      ::mlir::Location loc) const {
+    std::string name = "llvm.nvvm.fmin";
+    if (op.getPropagateNan() == PropagateNan::ALL) {
+      name += ".nan";
+    }
+    name += ".xorsign.abs";
+    if (elemTy.isF32()) {
+      name += ".f";
+    } else if (elemTy.isF16()) {
+      name += ".f16";
+    }
+
+    ::mlir::Type resultTy = operands[0][0].getType();
+    ::mlir::Value args[] = {operands[0][0], operands[0][2]};
+    auto callOp =
+        LLVM::createLLVMIntrinsicCallOp(rewriter, loc, name, resultTy, args);
+    return {callOp.getResult(0)};
+  }
+
+  ::mlir::SmallVector<::mlir::Value> createDestOps(ClampFOp op, OpAdaptor adaptor,
+                                   ::mlir::ConversionPatternRewriter &rewriter,
+                                   ::mlir::Type elemTy, MultipleOperandsRange operands,
+                                   ::mlir::Location loc) const {
+    if (isClipPattern(op)) {
+      return emitOptimization(op, rewriter, elemTy, operands, loc);
+    }
+    return {};
+  }
+
+private:
+  int computeCapability;
 };
 
+template <typename TritonOp>
+struct OpToExternCallConversion
+    : public ElementwiseOpConversionBase<TritonOp,
+                                         OpToExternCallConversion<TritonOp>> {
+  using Base =
+      ElementwiseOpConversionBase<TritonOp, OpToExternCallConversion<TritonOp>>;
+  using Base::Base;
+  using Adaptor = typename Base::OpAdaptor;
+
+  explicit OpToExternCallConversion(LLVMTypeConverter &typeConverter,
+                                    ModuleAxisInfoAnalysis &axisAnalysisPass,
+                                    StringRef externFuncName,
+                                    PatternBenefit benefit)
+      : Base::ElementwiseOpConversionBase(typeConverter, axisAnalysisPass,
+                                          benefit),
+        funcName(externFuncName) {}
+
+  ::mlir::SmallVector<::mlir::Value> createDestOps(TritonOp op, Adaptor adaptor,
+                                   ::mlir::ConversionPatternRewriter &rewriter,
+                                   ::mlir::Type elemTy, MultipleOperandsRange operands,
+                                   ::mlir::Location loc) const {
+    ::mlir::Type funcType = getFunctionType(elemTy, operands[0]);
+    LLVM::LLVMFuncOp funcOp =
+        appendOrGetExternFuncOp(rewriter, op, funcName, funcType);
+    return {
+        LLVM::createLLVMCallOp(rewriter, loc, funcOp, operands[0]).getResult()};
+  }
+
+private:
+  StringRef funcName;
+};
 } // namespace
+} // namespace gpu
 
-void ::mlir::triton::NVIDIA::populateClampFOpToLLVMPattern(
-    ::mlir::LLVMTypeConverter &typeConverter,
-    ::mlir::RewritePatternSet &patterns,
-    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
-    int computeCapability,
-    const ::mlir::triton::TargetInfoBase &targetInfo,
-    ::mlir::PatternBenefit benefit) {
-  patterns.add<ClampFOpConversion>(typeConverter, axisInfoAnalysis, targetInfo,
-                                   benefit);
-}
+} // namespace mlir::triton
 
-void ::mlir::triton::NVIDIA::populateElementwiseConversionPatterns(
-    ::mlir::LLVMTypeConverter &typeConverter,
-    ::mlir::RewritePatternSet &patterns,
-    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
-    int computeCapability,
-    const ::mlir::triton::TargetInfoBase &targetInfo,
-    ::mlir::PatternBenefit benefit) {
+void mlir::triton::NVIDIA::populateElementwiseOpToLLVMPatterns(
+    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
+    ModuleAxisInfoAnalysis &axisInfoAnalysis, int computeCapability,
+    const ::mlir::triton::TargetInfoBase &targetInfo, PatternBenefit benefit) {
+  using namespace mlir::triton::gpu;
+
+  patterns.add<OpToExternCallConversion<triton::PreciseSqrtOp>>(
+      typeConverter, axisInfoAnalysis, "__nv_fsqrt_rn", benefit);
+  patterns.add<OpToExternCallConversion<triton::PreciseDivFOp>>(
+      typeConverter, axisInfoAnalysis, "__nv_fdiv_rn", benefit);
+
+  ::mlir::triton::populateElementwiseOpToLLVMPatterns(
+      typeConverter, patterns, axisInfoAnalysis, targetInfo, benefit);
+
+#define POPULATE_OP(SRC_OP, DST_OP)                                            \
+  patterns.add<ElementwiseOpConversion<SRC_OP, DST_OP>>(                       \
+      typeConverter, axisInfoAnalysis, benefit)
+
+  POPULATE_OP(arith::SubFOp, LLVM::FSubOp);
+  POPULATE_OP(arith::AddFOp, LLVM::FAddOp);
+  POPULATE_OP(arith::MulFOp, LLVM::FMulOp);
+
+  POPULATE_OP(arith::ExtFOp, LLVM::FPExtOp);
+  POPULATE_OP(arith::TruncFOp, LLVM::FPTruncOp);
+
+#undef POPULATE_OP
+
   patterns.add<FDivOpConversion>(typeConverter, axisInfoAnalysis, benefit);
   patterns.add<FPToSIOpConversion>(typeConverter, axisInfoAnalysis, benefit);
   patterns.add<SIToFPOpConversion>(typeConverter, axisInfoAnalysis,
@@ -790,7 +871,17 @@ void ::mlir::triton::NVIDIA::populateElementwiseConversionPatterns(
       typeConverter, patterns, axisInfoAnalysis, hwNanPropagationSupported,
       benefit);
   ::mlir::triton::NVIDIA::populateClampFOpToLLVMPattern(
-      typeConverter, patterns, axisInfoAnalysis, computeCapability, targetInfo, benefit);
+      typeConverter, patterns, axisInfoAnalysis, computeCapability, benefit);
+}
+
+void ::mlir::triton::NVIDIA::populateClampFOpToLLVMPattern(
+    ::mlir::LLVMTypeConverter &typeConverter,
+    ::mlir::RewritePatternSet &patterns,
+    ::mlir::triton::ModuleAxisInfoAnalysis &axisInfoAnalysis,
+    int computeCapability,
+    ::mlir::PatternBenefit benefit) {
+  patterns.add<ClampFOpConversion>(typeConverter, axisInfoAnalysis,
+                                   computeCapability, benefit);
 }
 
 } // namespace NVIDIA

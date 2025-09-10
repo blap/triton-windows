@@ -85,19 +85,45 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8 /std:c++17 /Zc:__cplusplus")
 
+# Add additional include directories for proper header resolution
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/nvidia/include)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/third_party/nvidia/include)
+
 
 # #########
 # LLVM
 # #########
-if(NOT MLIR_DIR)
-  set(MLIR_DIR ${LLVM_LIBRARY_DIR}/cmake/mlir)
+# Check if MLIR_DIR is set as environment variable
+if(DEFINED ENV{MLIR_DIR})
+  set(MLIR_DIR $ENV{MLIR_DIR})
+elseif(NOT MLIR_DIR)
+  # Check if LLVM_DIR is set as environment variable
+  if(DEFINED ENV{LLVM_DIR})
+    set(LLVM_DIR $ENV{LLVM_DIR})
+  endif()
+  set(MLIR_DIR ${LLVM_DIR}/cmake/mlir)
 endif()
 
 # MLIR
 find_package(MLIR REQUIRED CONFIG PATHS ${MLIR_DIR})
 
+# LLVM
+if(NOT DEFINED LLVM_DIR)
+  if(DEFINED ENV{LLVM_DIR})
+    set(LLVM_DIR $ENV{LLVM_DIR})
+  endif()
+endif()
+
+find_package(LLVM REQUIRED CONFIG PATHS ${LLVM_DIR})
+
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+# Debug: Print MLIR and LLVM directories
+message(STATUS "MLIR_DIR: ${MLIR_DIR}")
+message(STATUS "LLVM_DIR: ${LLVM_DIR}")
+message(STATUS "MLIR_INCLUDE_DIRS: ${MLIR_INCLUDE_DIRS}")
+message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
 
 include(TableGen) # required by AddMLIR
 include(AddLLVM)
@@ -137,11 +163,16 @@ endfunction()
 
 
 # Disable warnings that show up in external code (gtest;pybind11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX /wd4244 /wd4624 /std:c++17 /Zc:__cplusplus")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4624")
 
+# Add include directories explicitly
 include_directories(".")
-include_directories(${MLIR_INCLUDE_DIRS})
-include_directories(${LLVM_INCLUDE_DIRS})
+if(MLIR_INCLUDE_DIRS)
+  include_directories(${MLIR_INCLUDE_DIRS})
+endif()
+if(LLVM_INCLUDE_DIRS)
+  include_directories(${LLVM_INCLUDE_DIRS})
+endif()
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include) # Tablegen'd files
 include_directories(${PROJECT_SOURCE_DIR}/third_party)

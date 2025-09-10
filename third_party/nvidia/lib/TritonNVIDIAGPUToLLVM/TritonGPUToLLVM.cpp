@@ -120,14 +120,14 @@ struct ConvertTritonGPUToLLVM
         typeConverter, patterns, patternBenefitNvidiaTensorCoreSubviewPattern);
     mlir::triton::NVIDIA::populateTMAToLLVMPatterns(typeConverter, targetInfo,
                                                     patterns, benefit);
-    populateDotOpToLLVMPatterns(typeConverter, patterns, benefit);
-    populateElementwiseOpToLLVMPatterns(typeConverter, patterns,
+    NVIDIA::populateDotOpToLLVMPatterns(typeConverter, patterns, benefit);
+    NVIDIA::populateElementwiseOpToLLVMPatterns(typeConverter, patterns,
                                         axisInfoAnalysis, computeCapability,
                                         targetInfo, benefit);
-    populateClampFOpToLLVMPattern(typeConverter, patterns, axisInfoAnalysis,
-                                  computeCapability,
+    NVIDIA::populateClampFOpToLLVMPattern(typeConverter, patterns, axisInfoAnalysis,
+                                  computeCapability, targetInfo,
                                   patternBenefitClampOptimizedPattern);
-    populateLoadStoreOpToLLVMPatterns(typeConverter, targetInfo,
+    NVIDIA::populateLoadStoreOpToLLVMPatterns(typeConverter, targetInfo,
                                       computeCapability, patterns,
                                       axisInfoAnalysis, benefit);
     mlir::triton::populateReduceOpToLLVMPatterns(typeConverter, patterns,
@@ -136,9 +136,9 @@ struct ConvertTritonGPUToLLVM
                                                static_cast<const mlir::triton::TargetInfoBase&>(targetInfo), benefit);
     mlir::triton::populateGatherOpToLLVMPatterns(typeConverter, patterns,
                                                  static_cast<const mlir::triton::TargetInfoBase&>(targetInfo), benefit);
-    populateBarrierOpToLLVMPatterns(typeConverter, patterns, benefit);
-    populateTensorPtrOpsToLLVMPatterns(typeConverter, patterns, benefit);
-    populateClusterOpsToLLVMPatterns(typeConverter, patterns, benefit);
+    NVIDIA::populateBarrierOpToLLVMPatterns(typeConverter, patterns, benefit);
+    NVIDIA::populateTensorPtrOpsToLLVMPatterns(typeConverter, patterns, benefit);
+    NVIDIA::populateClusterOpsToLLVMPatterns(typeConverter, patterns, benefit);
     mlir::triton::populateHistogramOpToLLVMPatterns(typeConverter, patterns,
                                                     static_cast<const mlir::triton::TargetInfoBase&>(targetInfo), benefit);
     mlir::triton::populatePrintOpToLLVMPattern(typeConverter, patterns,
