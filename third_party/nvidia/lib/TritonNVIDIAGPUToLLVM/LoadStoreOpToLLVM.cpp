@@ -865,12 +865,12 @@ struct AtomicRMWOpConversion
     SmallVector<Value> resultVals(elemsPerThread);
 
     // Lower AtomicRMWOp to a ld.acquire if possible
-    std::unordered_map<triton::MemSyncScope, triton::nvgpu::MemSyncScope>
+    std::unordered_map<triton::MemSyncScope, triton::nvgpu::NVGPUMemSyncScope>
         ScopeMap = {
-            {triton::MemSyncScope::CTA, triton::nvgpu::MemSyncScope::CTA},
-            {triton::MemSyncScope::GPU, triton::nvgpu::MemSyncScope::GPU},
+            {triton::MemSyncScope::CTA, triton::nvgpu::NVGPUMemSyncScope::CTA},
+            {triton::MemSyncScope::GPU, triton::nvgpu::NVGPUMemSyncScope::GPU},
             {triton::MemSyncScope::SYSTEM,
-             triton::nvgpu::MemSyncScope::SYSTEM}};
+             triton::nvgpu::NVGPUMemSyncScope::SYSTEM}};
     const bool doPTXLDPromotion = isPromotableToNVPTXLD(op) && vec == 1 &&
                                   packed == 1 && ScopeMap.count(op.getScope());
 
@@ -894,8 +894,8 @@ struct AtomicRMWOpConversion
         auto loadAcquireOp = rewriter.create<triton::nvgpu::LoadAcquireOp>(
             op.getLoc(), convertedValueTy, rmwPtr, pred,
             op.getSem() == triton::MemSemantic::ACQUIRE
-                ? triton::nvgpu::MemSemantic::ACQUIRE
-                : triton::nvgpu::MemSemantic::RELAXED,
+                ? triton::nvgpu::NVGPUMemSemantic::ACQUIRE
+                : triton::nvgpu::NVGPUMemSemantic::RELAXED,
             ScopeMap[op.getScope()]);
 
         auto ASMReturnTy = void_ty(ctx);

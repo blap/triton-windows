@@ -14,7 +14,8 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "triton/Dialect/Triton/IR/Dialect.h.inc"
 #include "triton/Dialect/Triton/IR/OpInterfaces.h"
-#include "triton/Dialect/Triton/IR/OpsEnums.h.inc"
+// Include Triton enums through the dedicated header to avoid conflicts
+#include "triton/Dialect/Triton/IR/TritonEnums.h"
 #include "triton/Dialect/Triton/IR/Traits.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 

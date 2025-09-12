@@ -11,40 +11,40 @@ namespace mlir {
 namespace triton {
 namespace nvgpu {
 // allowed 32-bit signless integer cases: 1, 2, 3, 4
-enum class MemSemantic : uint32_t {
+enum class NVGPUMemSemantic : uint32_t {
   RELAXED = 1,
   ACQUIRE = 2,
   RELEASE = 3,
   ACQUIRE_RELEASE = 4,
 };
 
-::std::optional<MemSemantic> symbolizeMemSemantic(uint32_t);
-::llvm::StringRef stringifyMemSemantic(MemSemantic);
-::std::optional<MemSemantic> symbolizeMemSemantic(::llvm::StringRef);
-inline constexpr unsigned getMaxEnumValForMemSemantic() {
+::std::optional<NVGPUMemSemantic> symbolizeNVGPUMemSemantic(uint32_t);
+::llvm::StringRef stringifyNVGPUMemSemantic(NVGPUMemSemantic);
+::std::optional<NVGPUMemSemantic> symbolizeNVGPUMemSemantic(::llvm::StringRef);
+inline constexpr unsigned getMaxEnumValForNVGPUMemSemantic() {
   return 4;
 }
 
 
-inline ::llvm::StringRef stringifyEnum(MemSemantic enumValue) {
-  return stringifyMemSemantic(enumValue);
+inline ::llvm::StringRef stringifyEnum(NVGPUMemSemantic enumValue) {
+  return stringifyNVGPUMemSemantic(enumValue);
 }
 
 template <typename EnumType>
 ::std::optional<EnumType> symbolizeEnum(::llvm::StringRef);
 
 template <>
-inline ::std::optional<MemSemantic> symbolizeEnum<MemSemantic>(::llvm::StringRef str) {
-  return symbolizeMemSemantic(str);
+inline ::std::optional<NVGPUMemSemantic> symbolizeEnum<NVGPUMemSemantic>(::llvm::StringRef str) {
+  return symbolizeNVGPUMemSemantic(str);
 }
 
-class MemSemanticAttr : public ::mlir::IntegerAttr {
+class NVGPUMemSemanticAttr : public ::mlir::IntegerAttr {
 public:
-  using ValueType = MemSemantic;
+  using ValueType = NVGPUMemSemantic;
   using ::mlir::IntegerAttr::IntegerAttr;
   static bool classof(::mlir::Attribute attr);
-  static MemSemanticAttr get(::mlir::MLIRContext *context, MemSemantic val);
-  MemSemantic getValue() const;
+  static NVGPUMemSemanticAttr get(::mlir::MLIRContext *context, NVGPUMemSemantic val);
+  NVGPUMemSemantic getValue() const;
 };
 } // namespace nvgpu
 } // namespace triton
@@ -55,9 +55,9 @@ template <typename T, typename>
 struct FieldParser;
 
 template<>
-struct FieldParser<::mlir::triton::nvgpu::MemSemantic, ::mlir::triton::nvgpu::MemSemantic> {
+struct FieldParser<::mlir::triton::nvgpu::NVGPUMemSemantic, ::mlir::triton::nvgpu::NVGPUMemSemantic> {
   template <typename ParserT>
-  static FailureOr<::mlir::triton::nvgpu::MemSemantic> parse(ParserT &parser) {
+  static FailureOr<::mlir::triton::nvgpu::NVGPUMemSemantic> parse(ParserT &parser) {
     // Parse the keyword/string containing the enum.
     std::string enumKeyword;
     auto loc = parser.getCurrentLocation();
@@ -65,7 +65,7 @@ struct FieldParser<::mlir::triton::nvgpu::MemSemantic, ::mlir::triton::nvgpu::Me
       return parser.emitError(loc, "expected keyword for allowed 32-bit signless integer cases: 1, 2, 3, 4");
 
     // Symbolize the keyword.
-    if (::std::optional<::mlir::triton::nvgpu::MemSemantic> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::MemSemantic>(enumKeyword))
+    if (::std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::NVGPUMemSemantic>(enumKeyword))
       return *attr;
     return parser.emitError(loc, "expected one of [relaxed, acquire, release, acq_rel] for allowed 32-bit signless integer cases: 1, 2, 3, 4, got: ") << enumKeyword;
   }
@@ -76,17 +76,17 @@ struct FieldParser<::mlir::triton::nvgpu::MemSemantic, ::mlir::triton::nvgpu::Me
 ///
 ///    let parameters = (ins OptionalParameter<"std::optional<TheEnumName>">:$value);
 template<>
-struct FieldParser<std::optional<::mlir::triton::nvgpu::MemSemantic>, std::optional<::mlir::triton::nvgpu::MemSemantic>> {
+struct FieldParser<std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic>, std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic>> {
   template <typename ParserT>
-  static FailureOr<std::optional<::mlir::triton::nvgpu::MemSemantic>> parse(ParserT &parser) {
+  static FailureOr<std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic>> parse(ParserT &parser) {
     // Parse the keyword/string containing the enum.
     std::string enumKeyword;
     auto loc = parser.getCurrentLocation();
     if (failed(parser.parseOptionalKeywordOrString(&enumKeyword)))
-      return std::optional<::mlir::triton::nvgpu::MemSemantic>{};
+      return std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic>{};
 
     // Symbolize the keyword.
-    if (::std::optional<::mlir::triton::nvgpu::MemSemantic> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::MemSemantic>(enumKeyword))
+    if (::std::optional<::mlir::triton::nvgpu::NVGPUMemSemantic> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::NVGPUMemSemantic>(enumKeyword))
       return attr;
     return parser.emitError(loc, "expected one of [relaxed, acquire, release, acq_rel] for allowed 32-bit signless integer cases: 1, 2, 3, 4, got: ") << enumKeyword;
   }
@@ -94,29 +94,29 @@ struct FieldParser<std::optional<::mlir::triton::nvgpu::MemSemantic>, std::optio
 } // namespace mlir
 
 namespace llvm {
-inline ::llvm::raw_ostream &operator<<(::llvm::raw_ostream &p, ::mlir::triton::nvgpu::MemSemantic value) {
+inline ::llvm::raw_ostream &operator<<(::llvm::raw_ostream &p, ::mlir::triton::nvgpu::NVGPUMemSemantic value) {
   auto valueStr = stringifyEnum(value);
   return p << valueStr;
 }
 } // namespace llvm
 
 namespace llvm {
-template<> struct DenseMapInfo<::mlir::triton::nvgpu::MemSemantic> {
+template<> struct DenseMapInfo<::mlir::triton::nvgpu::NVGPUMemSemantic> {
   using StorageInfo = ::llvm::DenseMapInfo<uint32_t>;
 
-  static inline ::mlir::triton::nvgpu::MemSemantic getEmptyKey() {
-    return static_cast<::mlir::triton::nvgpu::MemSemantic>(StorageInfo::getEmptyKey());
+  static inline ::mlir::triton::nvgpu::NVGPUMemSemantic getEmptyKey() {
+    return static_cast<::mlir::triton::nvgpu::NVGPUMemSemantic>(StorageInfo::getEmptyKey());
   }
 
-  static inline ::mlir::triton::nvgpu::MemSemantic getTombstoneKey() {
-    return static_cast<::mlir::triton::nvgpu::MemSemantic>(StorageInfo::getTombstoneKey());
+  static inline ::mlir::triton::nvgpu::NVGPUMemSemantic getTombstoneKey() {
+    return static_cast<::mlir::triton::nvgpu::NVGPUMemSemantic>(StorageInfo::getTombstoneKey());
   }
 
-  static unsigned getHashValue(const ::mlir::triton::nvgpu::MemSemantic &val) {
+  static unsigned getHashValue(const ::mlir::triton::nvgpu::NVGPUMemSemantic &val) {
     return StorageInfo::getHashValue(static_cast<uint32_t>(val));
   }
 
-  static bool isEqual(const ::mlir::triton::nvgpu::MemSemantic &lhs, const ::mlir::triton::nvgpu::MemSemantic &rhs) {
+  static bool isEqual(const ::mlir::triton::nvgpu::NVGPUMemSemantic &lhs, const ::mlir::triton::nvgpu::NVGPUMemSemantic &rhs) {
     return lhs == rhs;
   }
 };
@@ -126,39 +126,39 @@ namespace mlir {
 namespace triton {
 namespace nvgpu {
 // allowed 32-bit signless integer cases: 1, 2, 3
-enum class MemSyncScope : uint32_t {
+enum class NVGPUMemSyncScope : uint32_t {
   GPU = 1,
   CTA = 2,
   SYSTEM = 3,
 };
 
-::std::optional<MemSyncScope> symbolizeMemSyncScope(uint32_t);
-::llvm::StringRef stringifyMemSyncScope(MemSyncScope);
-::std::optional<MemSyncScope> symbolizeMemSyncScope(::llvm::StringRef);
-inline constexpr unsigned getMaxEnumValForMemSyncScope() {
+::std::optional<NVGPUMemSyncScope> symbolizeNVGPUMemSyncScope(uint32_t);
+::llvm::StringRef stringifyNVGPUMemSyncScope(NVGPUMemSyncScope);
+::std::optional<NVGPUMemSyncScope> symbolizeNVGPUMemSyncScope(::llvm::StringRef);
+inline constexpr unsigned getMaxEnumValForNVGPUMemSyncScope() {
   return 3;
 }
 
 
-inline ::llvm::StringRef stringifyEnum(MemSyncScope enumValue) {
-  return stringifyMemSyncScope(enumValue);
+inline ::llvm::StringRef stringifyEnum(NVGPUMemSyncScope enumValue) {
+  return stringifyNVGPUMemSyncScope(enumValue);
 }
 
 template <typename EnumType>
 ::std::optional<EnumType> symbolizeEnum(::llvm::StringRef);
 
 template <>
-inline ::std::optional<MemSyncScope> symbolizeEnum<MemSyncScope>(::llvm::StringRef str) {
-  return symbolizeMemSyncScope(str);
+inline ::std::optional<NVGPUMemSyncScope> symbolizeEnum<NVGPUMemSyncScope>(::llvm::StringRef str) {
+  return symbolizeNVGPUMemSyncScope(str);
 }
 
-class MemSyncScopeAttr : public ::mlir::IntegerAttr {
+class NVGPUMemSyncScopeAttr : public ::mlir::IntegerAttr {
 public:
-  using ValueType = MemSyncScope;
+  using ValueType = NVGPUMemSyncScope;
   using ::mlir::IntegerAttr::IntegerAttr;
   static bool classof(::mlir::Attribute attr);
-  static MemSyncScopeAttr get(::mlir::MLIRContext *context, MemSyncScope val);
-  MemSyncScope getValue() const;
+  static NVGPUMemSyncScopeAttr get(::mlir::MLIRContext *context, NVGPUMemSyncScope val);
+  NVGPUMemSyncScope getValue() const;
 };
 } // namespace nvgpu
 } // namespace triton
@@ -169,9 +169,9 @@ template <typename T, typename>
 struct FieldParser;
 
 template<>
-struct FieldParser<::mlir::triton::nvgpu::MemSyncScope, ::mlir::triton::nvgpu::MemSyncScope> {
+struct FieldParser<::mlir::triton::nvgpu::NVGPUMemSyncScope, ::mlir::triton::nvgpu::NVGPUMemSyncScope> {
   template <typename ParserT>
-  static FailureOr<::mlir::triton::nvgpu::MemSyncScope> parse(ParserT &parser) {
+  static FailureOr<::mlir::triton::nvgpu::NVGPUMemSyncScope> parse(ParserT &parser) {
     // Parse the keyword/string containing the enum.
     std::string enumKeyword;
     auto loc = parser.getCurrentLocation();
@@ -179,7 +179,7 @@ struct FieldParser<::mlir::triton::nvgpu::MemSyncScope, ::mlir::triton::nvgpu::M
       return parser.emitError(loc, "expected keyword for allowed 32-bit signless integer cases: 1, 2, 3");
 
     // Symbolize the keyword.
-    if (::std::optional<::mlir::triton::nvgpu::MemSyncScope> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::MemSyncScope>(enumKeyword))
+    if (::std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::NVGPUMemSyncScope>(enumKeyword))
       return *attr;
     return parser.emitError(loc, "expected one of [gpu, cta, sys] for allowed 32-bit signless integer cases: 1, 2, 3, got: ") << enumKeyword;
   }
@@ -190,17 +190,17 @@ struct FieldParser<::mlir::triton::nvgpu::MemSyncScope, ::mlir::triton::nvgpu::M
 ///
 ///    let parameters = (ins OptionalParameter<"std::optional<TheEnumName>">:$value);
 template<>
-struct FieldParser<std::optional<::mlir::triton::nvgpu::MemSyncScope>, std::optional<::mlir::triton::nvgpu::MemSyncScope>> {
+struct FieldParser<std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope>, std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope>> {
   template <typename ParserT>
-  static FailureOr<std::optional<::mlir::triton::nvgpu::MemSyncScope>> parse(ParserT &parser) {
+  static FailureOr<std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope>> parse(ParserT &parser) {
     // Parse the keyword/string containing the enum.
     std::string enumKeyword;
     auto loc = parser.getCurrentLocation();
     if (failed(parser.parseOptionalKeywordOrString(&enumKeyword)))
-      return std::optional<::mlir::triton::nvgpu::MemSyncScope>{};
+      return std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope>{};
 
     // Symbolize the keyword.
-    if (::std::optional<::mlir::triton::nvgpu::MemSyncScope> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::MemSyncScope>(enumKeyword))
+    if (::std::optional<::mlir::triton::nvgpu::NVGPUMemSyncScope> attr = ::mlir::triton::nvgpu::symbolizeEnum<::mlir::triton::nvgpu::NVGPUMemSyncScope>(enumKeyword))
       return attr;
     return parser.emitError(loc, "expected one of [gpu, cta, sys] for allowed 32-bit signless integer cases: 1, 2, 3, got: ") << enumKeyword;
   }
@@ -208,29 +208,29 @@ struct FieldParser<std::optional<::mlir::triton::nvgpu::MemSyncScope>, std::opti
 } // namespace mlir
 
 namespace llvm {
-inline ::llvm::raw_ostream &operator<<(::llvm::raw_ostream &p, ::mlir::triton::nvgpu::MemSyncScope value) {
+inline ::llvm::raw_ostream &operator<<(::llvm::raw_ostream &p, ::mlir::triton::nvgpu::NVGPUMemSyncScope value) {
   auto valueStr = stringifyEnum(value);
   return p << valueStr;
 }
 } // namespace llvm
 
 namespace llvm {
-template<> struct DenseMapInfo<::mlir::triton::nvgpu::MemSyncScope> {
+template<> struct DenseMapInfo<::mlir::triton::nvgpu::NVGPUMemSyncScope> {
   using StorageInfo = ::llvm::DenseMapInfo<uint32_t>;
 
-  static inline ::mlir::triton::nvgpu::MemSyncScope getEmptyKey() {
-    return static_cast<::mlir::triton::nvgpu::MemSyncScope>(StorageInfo::getEmptyKey());
+  static inline ::mlir::triton::nvgpu::NVGPUMemSyncScope getEmptyKey() {
+    return static_cast<::mlir::triton::nvgpu::NVGPUMemSyncScope>(StorageInfo::getEmptyKey());
   }
 
-  static inline ::mlir::triton::nvgpu::MemSyncScope getTombstoneKey() {
-    return static_cast<::mlir::triton::nvgpu::MemSyncScope>(StorageInfo::getTombstoneKey());
+  static inline ::mlir::triton::nvgpu::NVGPUMemSyncScope getTombstoneKey() {
+    return static_cast<::mlir::triton::nvgpu::NVGPUMemSyncScope>(StorageInfo::getTombstoneKey());
   }
 
-  static unsigned getHashValue(const ::mlir::triton::nvgpu::MemSyncScope &val) {
+  static unsigned getHashValue(const ::mlir::triton::nvgpu::NVGPUMemSyncScope &val) {
     return StorageInfo::getHashValue(static_cast<uint32_t>(val));
   }
 
-  static bool isEqual(const ::mlir::triton::nvgpu::MemSyncScope &lhs, const ::mlir::triton::nvgpu::MemSyncScope &rhs) {
+  static bool isEqual(const ::mlir::triton::nvgpu::NVGPUMemSyncScope &lhs, const ::mlir::triton::nvgpu::NVGPUMemSyncScope &rhs) {
     return lhs == rhs;
   }
 };

@@ -10,44 +10,44 @@
 namespace mlir {
 namespace triton {
 namespace nvgpu {
-::llvm::StringRef stringifyMemSemantic(MemSemantic val) {
+::llvm::StringRef stringifyNVGPUMemSemantic(NVGPUMemSemantic val) {
   switch (val) {
-    case MemSemantic::RELAXED: return "relaxed";
-    case MemSemantic::ACQUIRE: return "acquire";
-    case MemSemantic::RELEASE: return "release";
-    case MemSemantic::ACQUIRE_RELEASE: return "acq_rel";
+    case NVGPUMemSemantic::RELAXED: return "relaxed";
+    case NVGPUMemSemantic::ACQUIRE: return "acquire";
+    case NVGPUMemSemantic::RELEASE: return "release";
+    case NVGPUMemSemantic::ACQUIRE_RELEASE: return "acq_rel";
   }
   return "";
 }
 
-::std::optional<MemSemantic> symbolizeMemSemantic(::llvm::StringRef str) {
-  return ::llvm::StringSwitch<::std::optional<MemSemantic>>(str)
-      .Case("relaxed", MemSemantic::RELAXED)
-      .Case("acquire", MemSemantic::ACQUIRE)
-      .Case("release", MemSemantic::RELEASE)
-      .Case("acq_rel", MemSemantic::ACQUIRE_RELEASE)
+::std::optional<NVGPUMemSemantic> symbolizeNVGPUMemSemantic(::llvm::StringRef str) {
+  return ::llvm::StringSwitch<::std::optional<NVGPUMemSemantic>>(str)
+      .Case("relaxed", NVGPUMemSemantic::RELAXED)
+      .Case("acquire", NVGPUMemSemantic::ACQUIRE)
+      .Case("release", NVGPUMemSemantic::RELEASE)
+      .Case("acq_rel", NVGPUMemSemantic::ACQUIRE_RELEASE)
       .Default(::std::nullopt);
 }
-::std::optional<MemSemantic> symbolizeMemSemantic(uint32_t value) {
+::std::optional<NVGPUMemSemantic> symbolizeNVGPUMemSemantic(uint32_t value) {
   switch (value) {
-  case 1: return MemSemantic::RELAXED;
-  case 2: return MemSemantic::ACQUIRE;
-  case 3: return MemSemantic::RELEASE;
-  case 4: return MemSemantic::ACQUIRE_RELEASE;
+  case 1: return NVGPUMemSemantic::RELAXED;
+  case 2: return NVGPUMemSemantic::ACQUIRE;
+  case 3: return NVGPUMemSemantic::RELEASE;
+  case 4: return NVGPUMemSemantic::ACQUIRE_RELEASE;
   default: return ::std::nullopt;
   }
 }
 
-bool MemSemanticAttr::classof(::mlir::Attribute attr) {
+bool NVGPUMemSemanticAttr::classof(::mlir::Attribute attr) {
   return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 2)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 3)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 4)));
 }
-MemSemanticAttr MemSemanticAttr::get(::mlir::MLIRContext *context, MemSemantic val) {
+NVGPUMemSemanticAttr NVGPUMemSemanticAttr::get(::mlir::MLIRContext *context, NVGPUMemSemantic val) {
   ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
   ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<MemSemanticAttr>(baseAttr);
+  return ::llvm::cast<NVGPUMemSemanticAttr>(baseAttr);
 }
-MemSemantic MemSemanticAttr::getValue() const {
-  return static_cast<MemSemantic>(::mlir::IntegerAttr::getInt());
+NVGPUMemSemantic NVGPUMemSemanticAttr::getValue() const {
+  return static_cast<NVGPUMemSemantic>(::mlir::IntegerAttr::getInt());
 }
 } // namespace nvgpu
 } // namespace triton
@@ -56,41 +56,41 @@ MemSemantic MemSemanticAttr::getValue() const {
 namespace mlir {
 namespace triton {
 namespace nvgpu {
-::llvm::StringRef stringifyMemSyncScope(MemSyncScope val) {
+::llvm::StringRef stringifyNVGPUMemSyncScope(NVGPUMemSyncScope val) {
   switch (val) {
-    case MemSyncScope::GPU: return "gpu";
-    case MemSyncScope::CTA: return "cta";
-    case MemSyncScope::SYSTEM: return "sys";
+    case NVGPUMemSyncScope::GPU: return "gpu";
+    case NVGPUMemSyncScope::CTA: return "cta";
+    case NVGPUMemSyncScope::SYSTEM: return "sys";
   }
   return "";
 }
 
-::std::optional<MemSyncScope> symbolizeMemSyncScope(::llvm::StringRef str) {
-  return ::llvm::StringSwitch<::std::optional<MemSyncScope>>(str)
-      .Case("gpu", MemSyncScope::GPU)
-      .Case("cta", MemSyncScope::CTA)
-      .Case("sys", MemSyncScope::SYSTEM)
+::std::optional<NVGPUMemSyncScope> symbolizeNVGPUMemSyncScope(::llvm::StringRef str) {
+  return ::llvm::StringSwitch<::std::optional<NVGPUMemSyncScope>>(str)
+      .Case("gpu", NVGPUMemSyncScope::GPU)
+      .Case("cta", NVGPUMemSyncScope::CTA)
+      .Case("sys", NVGPUMemSyncScope::SYSTEM)
       .Default(::std::nullopt);
 }
-::std::optional<MemSyncScope> symbolizeMemSyncScope(uint32_t value) {
+::std::optional<NVGPUMemSyncScope> symbolizeNVGPUMemSyncScope(uint32_t value) {
   switch (value) {
-  case 1: return MemSyncScope::GPU;
-  case 2: return MemSyncScope::CTA;
-  case 3: return MemSyncScope::SYSTEM;
+  case 1: return NVGPUMemSyncScope::GPU;
+  case 2: return NVGPUMemSyncScope::CTA;
+  case 3: return NVGPUMemSyncScope::SYSTEM;
   default: return ::std::nullopt;
   }
 }
 
-bool MemSyncScopeAttr::classof(::mlir::Attribute attr) {
+bool NVGPUMemSyncScopeAttr::classof(::mlir::Attribute attr) {
   return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 2)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 3)));
 }
-MemSyncScopeAttr MemSyncScopeAttr::get(::mlir::MLIRContext *context, MemSyncScope val) {
+NVGPUMemSyncScopeAttr NVGPUMemSyncScopeAttr::get(::mlir::MLIRContext *context, NVGPUMemSyncScope val) {
   ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
   ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<MemSyncScopeAttr>(baseAttr);
+  return ::llvm::cast<NVGPUMemSyncScopeAttr>(baseAttr);
 }
-MemSyncScope MemSyncScopeAttr::getValue() const {
-  return static_cast<MemSyncScope>(::mlir::IntegerAttr::getInt());
+NVGPUMemSyncScope NVGPUMemSyncScopeAttr::getValue() const {
+  return static_cast<NVGPUMemSyncScope>(::mlir::IntegerAttr::getInt());
 }
 } // namespace nvgpu
 } // namespace triton

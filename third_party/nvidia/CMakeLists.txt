@@ -16,8 +16,6 @@ if(MLIR_AVAILABLE)
   # Add MLIR and LLVM include directories
   include_directories(${MLIR_INCLUDE_DIRS})
   include_directories(${LLVM_INCLUDE_DIRS})
-  # Remove hardcoded path that might not exist
-  # include_directories("C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
   
   # Add Windows SDK and Visual Studio C++ include paths for Windows build
   if(WIN32)

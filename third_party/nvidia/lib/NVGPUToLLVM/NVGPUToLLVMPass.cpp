@@ -430,11 +430,11 @@ public:
     auto &ld =
         ptxBuilder.create<>("ld")
             ->global()
-            .o("cta", op.getScope() == triton::nvgpu::MemSyncScope::CTA)
-            .o("gpu", op.getScope() == triton::nvgpu::MemSyncScope::GPU)
-            .o("sys", op.getScope() == triton::nvgpu::MemSyncScope::SYSTEM)
-            .o("acquire", op.getSem() == triton::nvgpu::MemSemantic::ACQUIRE)
-            .o("relaxed", op.getSem() == triton::nvgpu::MemSemantic::RELAXED)
+            .o("cta", op.getScope() == triton::nvgpu::NVGPUMemSyncScope::CTA)
+            .o("gpu", op.getScope() == triton::nvgpu::NVGPUMemSyncScope::GPU)
+            .o("sys", op.getScope() == triton::nvgpu::NVGPUMemSyncScope::SYSTEM)
+            .o("acquire", op.getSem() == triton::nvgpu::NVGPUMemSemantic::ACQUIRE)
+            .o("relaxed", op.getSem() == triton::nvgpu::NVGPUMemSemantic::RELAXED)
             .b(width);
     ld(dstOpr, addrOpr).maybePredicate(op.getMask(), "b");
 

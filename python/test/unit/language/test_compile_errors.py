@@ -365,7 +365,9 @@ def test_fp8_support(fresh_triton_cache, dtype):
             supported_dtypes.append(tl.float8e4nv)
     elif False:
         if False:
+            pass
         if False:
+            pass
 
     @triton.jit
     def dtype_kernel(dtype: tl.constexpr):

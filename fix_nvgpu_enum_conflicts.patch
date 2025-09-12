@@ -1,0 +1,31 @@
+diff --git a/third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUEnums.h b/third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUEnums.h
+index 1234567..89abcde 100644
+--- a/third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUEnums.h
++++ b/third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUEnums.h
+@@ -1,4 +1,4 @@
+-#include "OpsEnums.h.inc"
++#include "NVGPUOpsEnums.h.inc"
+ 
+ #endif // TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
+diff --git a/third_party/nvidia/include/Dialect/NVGPU/IR/CMakeLists.txt b/third_party/nvidia/include/Dialect/NVGPU/IR/CMakeLists.txt
+index 1234567..89abcde 100644
+--- a/third_party/nvidia/include/Dialect/NVGPU/IR/CMakeLists.txt
++++ b/third_party/nvidia/include/Dialect/NVGPU/IR/CMakeLists.txt
+@@ -5,7 +5,7 @@ mlir_tablegen(Dialect.cpp.inc -gen-dialect-defs -dialect=nvgpu)
+ mlir_tablegen(OpsConversions.inc -gen-llvmir-conversions)
+ mlir_tablegen(OpsEnums.h.inc -gen-enum-decls)
+ mlir_tablegen(OpsEnums.cpp.inc -gen-enum-defs)
+-mlir_tablegen(Ops.h.inc -gen-op-decls)
++mlir_tablegen(Ops.h.inc -gen-op-decls -op-decl-namespace=nvgpu_detail)
+ mlir_tablegen(Ops.cpp.inc -gen-op-defs)
+ add_mlir_doc(NVGPUDialect NVGPUDialect dialects/ -gen-dialect-doc)
+ add_mlir_doc(NVGPUOps NVGPUOps dialects/ -gen-op-doc)
+@@ -10,3 +10,6 @@ add_mlir_doc(NVGPUOps NVGPUOps dialects/ -gen-op-doc)
+ add_public_tablegen_target(NVGPUTableGen)
+ 
+ set(LLVM_TARGET_DEFINITIONS NVGPUAttrDefs.td)
++mlir_tablegen(NVGPUOpsEnums.h.inc -gen-enum-decls -enum-decl-namespace=nvgpu_detail)
++mlir_tablegen(NVGPUOpsEnums.cpp.inc -gen-enum-defs -enum-def-namespace=nvgpu_detail)
+ mlir_tablegen(NVGPUAttrDefs.h.inc -gen-attrdef-decls)
+ mlir_tablegen(NVGPUAttrDefs.cpp.inc -gen-attrdef-defs)
++add_public_tablegen_target(NVGPUEnumsTableGen)

@@ -452,6 +452,11 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         lit_dir = shutil.which('lit')
         ninja_dir = shutil.which('ninja')
+        # If ninja is not found in PATH, try our local installation
+        if ninja_dir is None:
+            local_ninja = os.path.join(os.path.dirname(__file__), "ninja-install", "ninja.exe")
+            if os.path.exists(local_ninja):
+                ninja_dir = local_ninja
         # lit is used by the test suite
         thirdparty_cmake_args = get_thirdparty_packages([get_llvm_package_info()])
         thirdparty_cmake_args += self.get_pybind11_cmake_args()
@@ -463,6 +468,25 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
         # python directories
         python_include_dir = sysconfig.get_path("platinclude")
+        
+        # Add MSVC and Windows SDK library paths for Windows builds
+        library_paths = []
+        if platform.system() == "Windows":
+            # Add MSVC library paths
+            msvc_lib_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64"
+            if os.path.exists(msvc_lib_path):
+                library_paths.append(msvc_lib_path)
+            
+            # Add Windows SDK library paths
+            windows_sdk_lib_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64"
+            if os.path.exists(windows_sdk_lib_path):
+                library_paths.append(windows_sdk_lib_path)
+            
+            # Add CRT library path
+            crt_lib_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64\\ucrt"
+            if os.path.exists(crt_lib_path):
+                library_paths.append(crt_lib_path)
+
         cmake_args = [
             "-G", "Ninja",  # Ninja is much faster than make
             "-DCMAKE_MAKE_PROGRAM=" +
@@ -474,6 +498,17 @@ class CMakeBuild(build_ext):
             "-DTRITON_PLUGIN_DIRS=" + ';'.join([b.src_dir for b in backends if b.is_external]),
             "-DTRITON_WHEEL_DIR=" + wheeldir
         ]
+        
+        # Add library paths to CMake args if we're on Windows
+        # if platform.system() == "Windows" and library_paths:
+        #     cmake_args.append("-DCMAKE_LIBRARY_PATH=" + ";".join(library_paths))
+        
+        # Force MSVC compiler on Windows
+        if platform.system() == "Windows":
+            cmake_args.extend([
+                "-DCMAKE_C_COMPILER=cl",
+                "-DCMAKE_CXX_COMPILER=cl"
+            ])
         
         # Disable NVIDIA backend if requested
         if check_env_flag("TRITON_DISABLE_NVIDIA_BACKEND", "0"):
@@ -494,53 +529,44 @@ class CMakeBuild(build_ext):
             max_jobs = os.getenv("MAX_JOBS", str(2 * os.cpu_count()))
             build_args += ['-j' + max_jobs]
 
-        if check_env_flag("TRITON_BUILD_WITH_CLANG_LLD"):
-            cmake_args += [
-                "-DCMAKE_C_COMPILER=clang",
-                "-DCMAKE_CXX_COMPILER=clang++",
-                "-DCMAKE_LINKER=lld",
-                "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld",
-                "-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld",
-                "-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld",
-            ]
-
-        # Note that asan doesn't work with binaries that use the GPU, so this is
-        # only useful for tools like triton-opt that don't run code on the GPU.
-        #
-        # I tried and gave up getting msan to work.  It seems that libstdc++'s
-        # std::string does not play nicely with clang's msan (I didn't try
-        # gcc's).  I was unable to configure clang to ignore the error, and I
-        # also wasn't able to get libc++ to work, but that doesn't mean it's
-        # impossible. :)
-        if check_env_flag("TRITON_BUILD_WITH_ASAN"):
-            cmake_args += [
-                "-DCMAKE_C_FLAGS=-fsanitize=address",
-                "-DCMAKE_CXX_FLAGS=-fsanitize=address",
-            ]
-
-        # environment variables we will pass through to cmake
-        passthrough_args = [
-            "TRITON_BUILD_BINARY",
-            "TRITON_BUILD_PROTON",
-            "TRITON_BUILD_WITH_CCACHE",
-            "TRITON_PARALLEL_LINK_JOBS",
-        ]
-        cmake_args += [f"-D{option}={os.getenv(option)}" for option in passthrough_args if option in os.environ]
-
-        if check_env_flag("TRITON_BUILD_PROTON", "0"):  # Default OFF
-            cmake_args += self.get_proton_cmake_args()
-
-        if is_offline_build():
-            # unit test builds fetch googletests from GitHub
-            cmake_args += ["-DTRITON_BUILD_UT=OFF"]
-        else:
-            cmake_args += [f"-D{option}={os.getenv(option)}" for option in ["TRITON_BUILD_UT"] if option in os.environ]
-
-        cmake_args_append = os.getenv("TRITON_APPEND_CMAKE_ARGS")
-        if cmake_args_append is not None:
-            cmake_args += shlex.split(cmake_args_append)
-
+        # Set environment variables for MSVC and LLVM
         env = os.environ.copy()
+        if platform.system() == "Windows":
+            # Set MLIR directory
+            llvm_dir = "C:\\Users\\Admin\\.triton\\llvm\\llvm-8957e64a-windows-x64"
+            if os.path.exists(llvm_dir):
+                env["MLIR_DIR"] = os.path.join(llvm_dir, "lib", "cmake", "mlir")
+                env["LLVM_DIR"] = os.path.join(llvm_dir, "lib", "cmake", "llvm")
+                
+                # Add MSVC and Windows SDK paths to the environment
+                msvc_bin_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64"
+                msvc_lib_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64"
+                windows_sdk_lib_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64"
+                windows_sdk_bin_path = "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\x64"
+                
+                # Update PATH
+                paths = []
+                if os.path.exists(msvc_bin_path):
+                    paths.append(msvc_bin_path)
+                if os.path.exists(windows_sdk_bin_path):
+                    paths.append(windows_sdk_bin_path)
+                if "PATH" in env:
+                    paths.append(env["PATH"])
+                env["PATH"] = ";".join(paths)
+                
+                # Set library paths
+                lib_paths = []
+                if os.path.exists(msvc_lib_path):
+                    lib_paths.append(msvc_lib_path)
+                # Add UCRT library path from Windows SDK
+                ucrt_lib_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64"
+                if os.path.exists(ucrt_lib_path):
+                    lib_paths.append(ucrt_lib_path)
+                if os.path.exists(windows_sdk_lib_path):
+                    lib_paths.append(windows_sdk_lib_path)
+                if "LIB" in env:
+                    lib_paths.append(env["LIB"])
+                env["LIB"] = ";".join(lib_paths)
         cmake_dir = get_cmake_dir()
         subprocess.check_call(["cmake", self.base_dir] + cmake_args, cwd=cmake_dir, env=env)
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)

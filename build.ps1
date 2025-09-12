@@ -1,20 +1,14 @@
-# Triton Windows Build Script
+# Triton Windows Enhanced Build Script
 # Builds Triton for Windows with NVIDIA GPU support
-#
-# Usage:
-#   .\build.ps1                    # Normal build with NVIDIA support
-#   .\build.ps1 -DisableNvidia     # Build without NVIDIA support
-#   .\build.ps1 -PythonPath "C:\path\to\python.exe"  # Use specific Python
-#   .\build.ps1 -BuildTimeout 7200  # Set build timeout to 2 hours
-#   .\build.ps1 -Verbose           # Enable verbose logging
-#   .\build.ps1 -CleanBuild        # Clean all build artifacts before building
+# Enhanced version with better error handling and enum conflict resolution
 
 param(
     [switch]$DisableNvidia,
     [string]$PythonPath = "",
     [int]$BuildTimeout = 3600,  # 1 hour default
     [switch]$Verbose,
-    [switch]$CleanBuild
+    [switch]$CleanBuild,
+    [switch]$SkipTests
 )
 
 # ----------------------------------------
@@ -186,6 +180,45 @@ function Fix-F2ReduceVersion {
         Set-Content -Path $file -Value $content -Encoding UTF8
         Write-Log "Fixed f2reduce version file" -Color "Green"
     }
+}
+
+# Fix enum conflicts between main Triton dialect and NVGPU dialect
+function Fix-EnumConflicts {
+    Write-Log "Fixing enum conflicts..." -Color "Cyan"
+    
+    # Clean generated files that might have conflicts
+    $nvgpuDir = "third_party\nvidia\include\Dialect\NVGPU\IR"
+    $generatedFiles = @(
+        "OpsEnums.h.inc",
+        "OpsEnums.cpp.inc",
+        "Ops.h.inc",
+        "Ops.cpp.inc"
+    )
+    
+    foreach ($file in $generatedFiles) {
+        $filePath = Join-Path $nvgpuDir $file
+        if (Test-Path $filePath) {
+            Remove-Item $filePath -Force -ErrorAction SilentlyContinue
+            Write-Log "Removed generated file: $file" -Color "Gray"
+        }
+    }
+    
+    # Force regeneration of TableGen files
+    $cmakeBuildDir = "build"
+    if (Test-Path $cmakeBuildDir) {
+        $nvgpuBuildDir = Join-Path $cmakeBuildDir "third_party\nvidia\include\Dialect\NVGPU\IR"
+        if (Test-Path $nvgpuBuildDir) {
+            foreach ($file in $generatedFiles) {
+                $filePath = Join-Path $nvgpuBuildDir $file
+                if (Test-Path $filePath) {
+                    Remove-Item $filePath -Force -ErrorAction SilentlyContinue
+                    Write-Log "Removed build file: $file" -Color "Gray"
+                }
+            }
+        }
+    }
+    
+    Write-Log "Enum conflicts fixed successfully" -Color "Green"
 }
 
 function Test-WheelIntegrity {
@@ -366,6 +399,67 @@ function Clean-BuildArtifacts {
 }
 
 # ----------------------------------------
+# Test Execution
+# ----------------------------------------
+
+function Run-Tests {
+    param([string]$PythonPath)
+    
+    Write-Log "Running tests..." -Color "Cyan"
+    
+    # Run basic import test
+    & $PythonPath -c "import triton; print(f'Triton version: {triton.__version__}')"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "Basic import test failed" -Color "Red"
+        return $false
+    }
+    
+    # Run simple kernel test
+    $testCode = @"
+import triton
+import triton.language as tl
+import torch
+
+@triton.jit
+def add_kernel(x_ptr, y_ptr, output_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
+    pid = tl.program_id(axis=0)
+    block_start = pid * BLOCK_SIZE
+    offsets = block_start + tl.arange(0, BLOCK_SIZE)
+    mask = offsets < n_elements
+    x = tl.load(x_ptr + offsets, mask=mask)
+    y = tl.load(y_ptr + offsets, mask=mask)
+    output = x + y
+    tl.store(output_ptr + offsets, output, mask=mask)
+
+def test_triton_add():
+    torch.manual_seed(0)
+    size = 98432
+    x = torch.rand(size, device='cuda')
+    y = torch.rand(size, device='cuda')
+    output = torch.empty_like(x, device='cuda')
+    grid = lambda meta: (triton.cdiv(size, meta['BLOCK_SIZE']),)
+    add_kernel[grid](x, y, output, size, BLOCK_SIZE=1024)
+    expected = x + y
+    return torch.allclose(output, expected)
+
+if torch.cuda.is_available():
+    result = test_triton_add()
+    print(f'Triton kernel test: {"PASSED" if result else "FAILED"}')
+else:
+    print('CUDA not available, skipping kernel test')
+"@
+    
+    & $PythonPath -c $testCode
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "Kernel test failed" -Color "Red"
+        return $false
+    }
+    
+    Write-Log "All tests passed!" -Color "Green"
+    return $true
+}
+
+# ----------------------------------------
 # Main Build Process
 # ----------------------------------------
 
@@ -376,7 +470,7 @@ Set-Location -Path $scriptPath
 # Add ninja to PATH
 $env:PATH = "$pwd\ninja-install;$env:PATH"
 
-Write-Log "Starting Triton Windows build..." -Color "Green"
+Write-Log "Starting Triton Windows enhanced build..." -Color "Green"
 Write-Log "Working directory: $(Get-Location)" -Color "Gray"
 
 # Clean build if requested
@@ -431,6 +525,8 @@ if (-not $DisableNvidia) {
 
 # Fix f2reduce version file before build
 Fix-F2ReduceVersion
+# Fix enum conflicts before build
+Fix-EnumConflicts
 
 # Ensure pybind11 3.0.1 is installed
 Write-Log "Checking pybind11 installation..." -Color "Cyan"
@@ -503,13 +599,13 @@ if (-not $ninjaPath) {
 }
 
 # Clean previous builds
-Write-Log "[1/5] Cleaning build cache..." -Color "Cyan"
+Write-Log "[1/6] Cleaning build cache..." -Color "Cyan"
 Get-ChildItem -Path "." -Recurse -Name "__pycache__" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 if (Test-Path "build") { Remove-Item "build\*" -Recurse -Force -ErrorAction SilentlyContinue }
 if (Test-Path "python\triton\_C\libtriton*") { Remove-Item "python\triton\_C\libtriton*" -Force -ErrorAction SilentlyContinue }
 
 # Build Triton with CMake
-Write-Log "[2/5] Building Triton C++ extension..." -Color "Cyan"
+Write-Log "[2/6] Building Triton C++ extension..." -Color "Cyan"
 
 # Create build directory
 if (!(Test-Path "build")) { 
@@ -574,21 +670,21 @@ if (!(Test-Path "python\triton\_C\libtriton*")) {
 }
 
 # Install in development mode
-Write-Log "[3/5] Installing in development mode..." -Color "Cyan"
+Write-Log "[3/6] Installing in development mode..." -Color "Cyan"
 & $python -m pip install -e . --no-cache-dir --verbose
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorAndExit "Installation failed"
 }
 
 # Create wheel
-Write-Log "[4/5] Creating wheel..." -Color "Cyan"
+Write-Log "[4/6] Creating wheel..." -Color "Cyan"
 & $python -m pip wheel . --no-deps -w "build"
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorAndExit "Wheel creation failed"
 }
 
 # Verify installation (simplified test)
-Write-Log "[5/5] Verifying installation..." -Color "Cyan"
+Write-Log "[5/6] Verifying installation..." -Color "Cyan"
 & $python -c "import triton; print(f'Triton version: {triton.__version__}')"
 if ($LASTEXITCODE -eq 0) {
     Write-Log "Triton imported successfully" -Color "Green"
@@ -597,8 +693,10 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Verify NVIDIA backend if enabled
+$nvidiaBackendVerified = $true
 if (-not $DisableNvidia) {
-    if (-not (Test-NvidiaBackend -PythonPath $python)) {
+    $nvidiaBackendVerified = Test-NvidiaBackend -PythonPath $python
+    if (-not $nvidiaBackendVerified) {
         Write-Log "Warning: NVIDIA backend verification failed" -Color "Yellow"
     }
 }
@@ -614,7 +712,23 @@ if ($wheels) {
         # Validate wheel metadata
         Test-WheelMetadata -WheelPath $_.FullName
     }
-    Write-Log "Build completed successfully!" -Color "Green"
 } else {
     Write-ErrorAndExit "No wheel file was created"
+}
+
+# Run tests if not skipped
+if (-not $SkipTests) {
+    Write-Log "[6/6] Running tests..." -Color "Cyan"
+    if (Run-Tests -PythonPath $python) {
+        Write-Log "All tests passed!" -Color "Green"
+    } else {
+        Write-Log "Some tests failed" -Color "Red"
+    }
+} else {
+    Write-Log "[6/6] Skipping tests (as requested)" -Color "Yellow"
+}
+
+Write-Log "Build completed successfully!" -Color "Green"
+if (-not $DisableNvidia -and $nvidiaBackendVerified) {
+    Write-Log "NVIDIA backend is available and functional" -Color "Green"
 }

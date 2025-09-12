@@ -21,31 +21,16 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef TRITON_DIALECT_NVGPU_IR_DIALECT_H_
-#define TRITON_DIALECT_NVGPU_IR_DIALECT_H_
+#ifndef TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
+#define TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
 
-#include "mlir/Dialect/GPU/IR/GPUDialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/Dialect.h"
+// Include the generated enum declarations if they exist
+// Use include guards to prevent redefinition errors
+#ifndef NVGPU_OPS_ENUMS_INCLUDED
+#define NVGPU_OPS_ENUMS_INCLUDED
+#if __has_include("NVGPUOpsEnums.h.inc")
+#include "NVGPUOpsEnums.h.inc"
+#endif
+#endif // NVGPU_OPS_ENUMS_INCLUDED
 
-// Include the dialect header first
-#include "Dialect.h.inc"
-
-// Include enum declarations before the ops
-#include "NVGPUEnums.h"
-
-#define GET_ATTRDEF_CLASSES
-#include "NVGPUAttrDefs.h.inc"
-
-#define GET_OP_CLASSES
-#include "Ops.h.inc"
-
-namespace mlir {
-namespace triton {
-namespace nvgpu {} // namespace nvgpu
-} // namespace triton
-} // namespace mlir
-
-#endif // TRITON_DIALECT_NVGPU_IR_DIALECT_H_
+#endif // TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
