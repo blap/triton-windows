@@ -3,7 +3,7 @@
 |* Dialect Definitions                                                        *|
 |*                                                                            *|
 |* Automatically generated file, do not edit!                                 *|
-|* From: NVWSOps.td                                                           *|
+|* From: NVWSDialect.td                                                       *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 

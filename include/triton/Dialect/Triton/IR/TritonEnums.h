@@ -24,12 +24,11 @@
 #ifndef TRITON_DIALECT_TRITON_IR_TRITONENUMS_H_
 #define TRITON_DIALECT_TRITON_IR_TRITONENUMS_H_
 
-// Include the generated enum declarations if they exist
+// Include the generated enum declarations with Triton prefix to avoid conflicts
 // Use include guards to prevent redefinition errors
 #ifndef TRITON_OPS_ENUMS_INCLUDED
 #define TRITON_OPS_ENUMS_INCLUDED
-// Include our copy of the enums to avoid conflicts during build
-#include "TritonOpsEnums.h.inc"
+#include "triton/Dialect/Triton/IR/OpsEnums.h.inc"
 #endif // TRITON_OPS_ENUMS_INCLUDED
 
 #endif // TRITON_DIALECT_TRITON_IR_TRITONENUMS_H_

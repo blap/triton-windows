@@ -31,16 +31,42 @@
 #include "mlir/IR/Dialect.h"
 
 // Include the dialect header first
-#include "Dialect.h.inc"
+// Try to include from build directory first, then from source directory
+#ifdef __has_include
+#  if __has_include("Dialect.h.inc")
+#    include "Dialect.h.inc"
+#  elif __has_include("../../../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h.inc")
+#    include "../../../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h.inc"
+#  elif __has_include("../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h.inc")
+#    include "../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h.inc"
+#  else
+#    include "Dialect.h.inc"
+#  endif
+#else
+#  include "Dialect.h.inc"
+#endif
 
 // Include enum declarations before the ops
 #include "NVGPUEnums.h"
 
-#define GET_ATTRDEF_CLASSES
-#include "NVGPUAttrDefs.h.inc"
+// Include attribute definitions
+#include "Attributes.h"
 
 #define GET_OP_CLASSES
-#include "Ops.h.inc"
+// Try to include from build directory first, then from source directory
+#ifdef __has_include
+#  if __has_include("Ops.h.inc")
+#    include "Ops.h.inc"
+#  elif __has_include("../../../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Ops.h.inc")
+#    include "../../../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Ops.h.inc"
+#  elif __has_include("../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Ops.h.inc")
+#    include "../../../build_vs/third_party/nvidia/include/Dialect/NVGPU/IR/Ops.h.inc"
+#  else
+#    include "Ops.h.inc"
+#  endif
+#else
+#  include "Ops.h.inc"
+#endif
 
 namespace mlir {
 namespace triton {

@@ -1,6 +1,8 @@
 # Triton builds
 build/
 build-*/
+build_vs/
+dist/
 
 llvm-project/
 llvm-project-*/
@@ -55,6 +57,7 @@ venv.bak/
 # VS Code project files
 .vscode
 .vs
+.qoder/
 
 # JetBrains project files
 .idea
@@ -98,3 +101,35 @@ docs/sg_execution_times.rst
 /main.*
 /*.mlir
 /wheelhouse
+
+# Visual Studio build artifacts
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.tlog
+x64/
+Debug/
+Release/
+*.ilk
+*.pdb
+ipch/
+
+# CMake build artifacts
+*.stamp
+*.depend
+CMakeFiles/
+CTestTestfile.cmake
+cmake_install.cmake
+
+# Generated files
+*.inc
+
+# Additional build artifacts
+*.exp
+*.lib
+*.bak
+

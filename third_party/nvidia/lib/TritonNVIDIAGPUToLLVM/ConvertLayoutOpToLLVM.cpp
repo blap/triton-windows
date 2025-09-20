@@ -248,3 +248,4 @@ void mlir::triton::NVIDIA::populateConvertLayoutOpToLLVMPatterns(
   mlir::triton::populateConvertLayoutOpToLLVMPatterns(typeConverter, targetInfo,
                                                       patterns, benefit);
 }
+

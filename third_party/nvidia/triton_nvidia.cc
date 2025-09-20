@@ -7,6 +7,7 @@
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "third_party/nvidia/hopper/include/Transforms/Passes.h"
 #include "third_party/nvidia/include/Dialect/NVWS/Transforms/Passes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "passes.h"
 #include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonNvidiaGPU/Transforms/Passes.h"
@@ -58,8 +59,8 @@ void init_triton_nvidia_passes_ttnvgpuir(py::module &&m) {
 
 void init_triton_nvidia_passes_nvws(py::module &&m) {
   ADD_PASS_WRAPPER_0("add_lower_warp_group",
-                     mlir::triton::createNVWSLowerWarpGroup);
-  ADD_PASS_WRAPPER_0("add_lower_aref", mlir::triton::createNVWSLowerAref);
+                     mlir::triton::nvws::createNVWSLowerWarpGroup);
+  ADD_PASS_WRAPPER_0("add_lower_aref", mlir::triton::nvws::createNVWSLowerAref);
 }
 
 void init_triton_hopper_passes(py::module &&m) {

@@ -6,7 +6,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/PatternMatch.h"
 #include "proton/dialect/include/Dialect/Proton/IR/Dialect.h.inc"
-#include "proton/dialect/include/Dialect/Proton/IR/OpsEnums.h.inc"
+#include "proton/dialect/include/Dialect/Proton/IR/ProtonOpsEnums.h.inc"
 
 #define GET_ATTRDEF_CLASSES
 #include "proton/dialect/include/Dialect/Proton/IR/ProtonAttrDefs.h.inc"

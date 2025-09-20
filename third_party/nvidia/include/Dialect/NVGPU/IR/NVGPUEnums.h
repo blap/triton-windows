@@ -24,12 +24,14 @@
 #ifndef TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
 #define TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
 
-// Include the generated enum declarations if they exist
+// Include the generated enum declarations with NVGPU prefix to avoid conflicts
 // Use include guards to prevent redefinition errors
 #ifndef NVGPU_OPS_ENUMS_INCLUDED
 #define NVGPU_OPS_ENUMS_INCLUDED
 #if __has_include("NVGPUOpsEnums.h.inc")
 #include "NVGPUOpsEnums.h.inc"
+#elif __has_include("third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUOpsEnums.h.inc")
+#include "third_party/nvidia/include/Dialect/NVGPU/IR/NVGPUOpsEnums.h.inc"
 #endif
 #endif // NVGPU_OPS_ENUMS_INCLUDED
 

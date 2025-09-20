@@ -37,6 +37,9 @@ def NVGPU_Float : AnyTypeOf<[F8E4M3FN, F8E4M3FNUZ, F8E5M2, F8E5M2FNUZ, F16, BF16
 def NVGPU_Int : AnyTypeOf<[I1, I8, I16, I32, I64], "integer">;
 def NVGPU_ScalarLike : AnyTypeOf<[NVGPU_Float, NVGPU_Int], "scalar-like">;
 
+// Define WGMMA_OperandType
+def WGMMA_OperandType : AnyTypeOf<[LLVM_AnyStruct, I64], "wgmma operand A/B type">;
+
 class NVGPU_Op<string mnemonic, list<Trait> traits = []> :
     LLVM_OpBase<NVGPU_Dialect, mnemonic, traits>;
 
@@ -54,32 +57,6 @@ def NVGPU_WGMMAWaitGroupOp : NVGPU_Op<"wgmma_wait_group", [DeclareOpInterfaceMet
   let results = (outs LLVM_AnyStruct:$output);
   let assemblyFormat = "$input attr-dict `:` type($input)";
 }
-
-def WGMMA_LayoutAttr : I32EnumAttr<"WGMMALayout",
-    "wgmma layout, either 'row' or 'col'",
-    [
-      I32EnumAttrCase<"row", 0>,
-      I32EnumAttrCase<"col", 1>
-    ]>{
-  let cppNamespace = "::mlir::triton::nvgpu";
-}
-
-def WGMMA_EltTypeAttr : I32EnumAttr<"WGMMAEltType",
-    "wgmma operand type, either 's8', 's32', 'e4m3', 'e5m2', 'f16', 'bf16', 'tf32', or 'f32'",
-    [
-      I32EnumAttrCase<"s8", 0>,
-      I32EnumAttrCase<"s32", 1>,
-      I32EnumAttrCase<"e4m3", 2>,
-      I32EnumAttrCase<"e5m2", 3>,
-      I32EnumAttrCase<"f16", 4>,
-      I32EnumAttrCase<"bf16", 5>,
-      I32EnumAttrCase<"tf32", 6>,
-      I32EnumAttrCase<"f32", 7>
-    ]>{
-  let cppNamespace = "::mlir::triton::nvgpu";
-}
-
-def WGMMA_OperandType : AnyTypeOf<[LLVM_AnyStruct, I64], "wgmma operand A/B type">;
 
 def NVGPU_WGMMAOp : NVGPU_Op<"wgmma", []> {
   let arguments = (ins WGMMA_OperandType:$opA, WGMMA_OperandType:$opB, I1:$useC, Optional<LLVM_AnyStruct>:$opC,
@@ -126,27 +103,6 @@ def NVGPU_LoadMatrixOp : NVGPU_Op<"ldmatrix", [MemoryEffects<[MemRead]>]> {
 def NVGPU_ClusterCTAIdOp : NVGPU_Op<"cluster_id", [Pure]> {
   let results = (outs I32:$result);
   let assemblyFormat = "attr-dict";
-}
-
-def NVGPU_MemSemanticAttr : I32EnumAttr<
-    "NVGPUMemSemantic", "",
-    [
-      I32EnumAttrCase<"RELAXED", 1, "relaxed">,
-      I32EnumAttrCase<"ACQUIRE", 2, "acquire">,
-      I32EnumAttrCase<"RELEASE", 3, "release">,
-      I32EnumAttrCase<"ACQUIRE_RELEASE", 4, "acq_rel">,
-    ]> {
-    let cppNamespace = "::mlir::triton::nvgpu";
-}
-
-def NVGPU_MemSyncScopeAttr : I32EnumAttr<
-    "NVGPUMemSyncScope", "",
-    [
-      I32EnumAttrCase<"GPU", 1, "gpu">,
-      I32EnumAttrCase<"CTA", 2, "cta">,
-      I32EnumAttrCase<"SYSTEM", 3, "sys">,
-    ]> {
-    let cppNamespace = "::mlir::triton::nvgpu";
 }
 
 def NVGPU_LoadAcquireOp : NVGPU_Op<"ld_acquire", [MemoryEffects<[MemRead]>]> {

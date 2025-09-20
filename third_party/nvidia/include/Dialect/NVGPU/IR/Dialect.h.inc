@@ -3,7 +3,7 @@
 |* Dialect Declarations                                                       *|
 |*                                                                            *|
 |* Automatically generated file, do not edit!                                 *|
-|* From: NVGPUOps.td                                                          *|
+|* From: NVGPUDialect.td                                                      *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 

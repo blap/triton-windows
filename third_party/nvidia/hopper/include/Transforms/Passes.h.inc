@@ -584,10 +584,10 @@ inline void registerNVGPUWarpSpecializationPass() {
 }
 
 //===----------------------------------------------------------------------===//
-// NVHopperTransforms Registration
+// TritonNVIDIAHopper Registration
 //===----------------------------------------------------------------------===//
 
-inline void registerNVHopperTransformsPasses() {
+inline void registerTritonNVIDIAHopperPasses() {
   registerNVGPUTestWSCodePartition();
   registerNVGPUTestWSDataPartition();
   registerNVGPUTestWSTaskIdPropagate();

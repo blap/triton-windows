@@ -86,39 +86,44 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8 /std:c++17 /Zc:__cplusplus")
 
 # Add additional include directories for proper header resolution
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/nvidia/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/third_party/nvidia/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+if(MLIR_INCLUDE_DIRS)
+  include_directories(${MLIR_INCLUDE_DIRS})
+endif()
+if(LLVM_INCLUDE_DIRS)
+  include_directories(${LLVM_INCLUDE_DIRS})
+endif()
 
-# Add Windows SDK and Visual Studio C++ include paths for Windows build
+# Explicitly add MLIR and LLVM include paths for Windows build
 if(WIN32)
-  # Find Visual Studio installation
-  set(VS_PATH "C:/Program Files/Microsoft Visual Studio/2022/Community")
-  if(EXISTS ${VS_PATH})
-    # Find the latest MSVC version
-    file(GLOB MSVC_VERSIONS "${VS_PATH}/VC/Tools/MSVC/*")
-    list(REVERSE MSVC_VERSIONS)
-    list(GET MSVC_VERSIONS 0 LATEST_MSVC)
-    
-    if(EXISTS ${LATEST_MSVC})
-      # Add Visual Studio C++ headers
-      include_directories("${LATEST_MSVC}/include")
-      include_directories("${LATEST_MSVC}/atlmfc/include")
-      
-      # Find Windows SDK
-      file(GLOB WIN_SDK_VERSIONS "C:/Program Files (x86)/Windows Kits/10/Include/*")
-      list(REVERSE WIN_SDK_VERSIONS)
-      list(GET WIN_SDK_VERSIONS 0 LATEST_WIN_SDK)
-      
-      if(EXISTS ${LATEST_WIN_SDK})
-        # Add Windows SDK headers
-        include_directories("${LATEST_WIN_SDK}/ucrt")
-        include_directories("${LATEST_WIN_SDK}/um")
-        include_directories("${LATEST_WIN_SDK}/shared")
-        include_directories("${LATEST_WIN_SDK}/winrt")
-        include_directories("${LATEST_WIN_SDK}/cppwinrt")
-      endif()
-    endif()
+  # Add MLIR include directory
+  set(MLIR_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  set(LLVM_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  
+  if(EXISTS ${MLIR_DEFAULT_INCLUDE_DIR})
+    include_directories(${MLIR_DEFAULT_INCLUDE_DIR})
   endif()
+  
+  if(EXISTS ${LLVM_DEFAULT_INCLUDE_DIR})
+    include_directories(${LLVM_DEFAULT_INCLUDE_DIR})
+  endif()
+  
+  # Add build directory include paths for tablegen files first, ensuring they are searched before source paths
+  # Use BEFORE keyword to ensure these paths are searched first
+  include_directories(BEFORE ${CMAKE_BINARY_DIR}/third_party/nvidia/hopper/include)
+  include_directories(BEFORE ${CMAKE_BINARY_DIR}/third_party/nvidia/include)
+  include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nvidia/include)
+  include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/third_party/nvidia/include)
+endif()
+
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_BINARY_DIR}/include) # Tablegen'd files
+include_directories(${PROJECT_SOURCE_DIR}/third_party)
+include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
+# Add NVIDIA backend include paths conditionally
+if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
+  include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)
+  include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)
 endif()
 
 # Add library directories for Windows builds
@@ -135,6 +140,16 @@ if(WIN32)
   link_directories("C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/lib/x64")
   link_directories("C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/um/x64")
   link_directories("C:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x64")
+  
+  # Add Visual Studio include directories for C++ standard library headers
+  include_directories("C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include")
+  include_directories("C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/atlmfc/include")
+  include_directories("C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/VS/include")
+  include_directories("C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt")
+  include_directories("C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um")
+  include_directories("C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared")
+  include_directories("C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt")
+  include_directories("C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt")
 endif()
 
 
@@ -149,20 +164,98 @@ elseif(NOT MLIR_DIR)
   if(DEFINED ENV{LLVM_DIR})
     set(LLVM_DIR $ENV{LLVM_DIR})
   endif()
-  set(MLIR_DIR ${LLVM_DIR}/cmake/mlir)
-endif()
-
-# MLIR
-find_package(MLIR REQUIRED CONFIG PATHS ${MLIR_DIR})
-
-# LLVM
-if(NOT DEFINED LLVM_DIR)
-  if(DEFINED ENV{LLVM_DIR})
-    set(LLVM_DIR $ENV{LLVM_DIR})
+  # Set default MLIR_DIR based on LLVM_DIR
+  if(LLVM_DIR)
+    set(MLIR_DIR ${LLVM_DIR}/cmake/mlir)
   endif()
 endif()
 
-find_package(LLVM REQUIRED CONFIG PATHS ${LLVM_DIR})
+# Set default paths if not provided
+if(NOT LLVM_DIR)
+  if(DEFINED ENV{LLVM_DIR})
+    set(LLVM_DIR $ENV{LLVM_DIR})
+  else()
+    # Default path for Windows installation
+    set(LLVM_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/llvm")
+  endif()
+endif()
+
+if(NOT MLIR_DIR)
+  if(DEFINED ENV{MLIR_DIR})
+    set(MLIR_DIR $ENV{MLIR_DIR})
+  else()
+    # Default path for Windows installation
+    set(MLIR_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/mlir")
+  endif()
+endif()
+
+# Additional check for alternative LLVM installation path
+if(NOT EXISTS ${LLVM_DIR})
+  set(ALT_LLVM_DIR "C:/Users/Admin/.triton/llvm/lib/cmake/llvm")
+  set(ALT_MLIR_DIR "C:/Users/Admin/.triton/llvm/lib/cmake/mlir")
+  
+  if(EXISTS ${ALT_LLVM_DIR})
+    set(LLVM_DIR ${ALT_LLVM_DIR})
+    message(STATUS "Using alternative LLVM path: ${LLVM_DIR}")
+  endif()
+  
+  if(EXISTS ${ALT_MLIR_DIR})
+    set(MLIR_DIR ${ALT_MLIR_DIR})
+    message(STATUS "Using alternative MLIR path: ${MLIR_DIR}")
+  endif()
+endif()
+
+# Check if the paths exist and adjust if needed
+if(NOT EXISTS ${LLVM_DIR} AND EXISTS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/llvm")
+  set(LLVM_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/llvm")
+  message(STATUS "Using found LLVM path: ${LLVM_DIR}")
+endif()
+
+if(NOT EXISTS ${MLIR_DIR} AND EXISTS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/mlir")
+  set(MLIR_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/mlir")
+  message(STATUS "Using found MLIR path: ${MLIR_DIR}")
+endif()
+
+# MLIR
+message(STATUS "Looking for MLIR in: ${MLIR_DIR}")
+if(EXISTS ${MLIR_DIR})
+  find_package(MLIR REQUIRED CONFIG PATHS ${MLIR_DIR})
+else()
+  message(WARNING "MLIR directory not found at ${MLIR_DIR}. Will attempt to build without MLIR or use fallback paths.")
+  # Set fallback paths for MLIR headers
+  set(MLIR_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/mlir/include")
+  set(LLVM_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/llvm/include")
+  
+  # Check if fallback paths exist
+  if(EXISTS ${MLIR_INCLUDE_DIRS})
+    include_directories(${MLIR_INCLUDE_DIRS})
+    message(STATUS "Using fallback MLIR include path: ${MLIR_INCLUDE_DIRS}")
+  endif()
+  
+  if(EXISTS ${LLVM_INCLUDE_DIRS})
+    include_directories(${LLVM_INCLUDE_DIRS})
+    message(STATUS "Using fallback LLVM include path: ${LLVM_INCLUDE_DIRS}")
+  endif()
+  
+  # Set MLIR_AVAILABLE to FALSE to skip NVIDIA backend if MLIR is not available
+  set(MLIR_AVAILABLE FALSE)
+endif()
+
+# LLVM
+message(STATUS "Looking for LLVM in: ${LLVM_DIR}")
+if(EXISTS ${LLVM_DIR})
+  find_package(LLVM REQUIRED CONFIG PATHS ${LLVM_DIR})
+else()
+  message(WARNING "LLVM directory not found at ${LLVM_DIR}. Will attempt to build without LLVM or use fallback paths.")
+  # Set fallback paths for LLVM headers
+  set(LLVM_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/llvm/include")
+  
+  # Check if fallback paths exist
+  if(EXISTS ${LLVM_INCLUDE_DIRS})
+    include_directories(${LLVM_INCLUDE_DIRS})
+    message(STATUS "Using fallback LLVM include path: ${LLVM_INCLUDE_DIRS}")
+  endif()
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
@@ -172,6 +265,24 @@ message(STATUS "MLIR_DIR: ${MLIR_DIR}")
 message(STATUS "LLVM_DIR: ${LLVM_DIR}")
 message(STATUS "MLIR_INCLUDE_DIRS: ${MLIR_INCLUDE_DIRS}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+
+# Explicitly set MLIR and LLVM include directories if not set
+if(NOT MLIR_INCLUDE_DIRS)
+  set(MLIR_INCLUDE_DIRS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+endif()
+
+if(NOT LLVM_INCLUDE_DIRS)
+  set(LLVM_INCLUDE_DIRS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+endif()
+
+# Verify that MLIR and LLVM include directories exist
+if(NOT EXISTS ${MLIR_INCLUDE_DIRS})
+  message(FATAL_ERROR "MLIR include directory not found at ${MLIR_INCLUDE_DIRS}. Please ensure MLIR is properly installed.")
+endif()
+
+if(NOT EXISTS ${LLVM_INCLUDE_DIRS})
+  message(FATAL_ERROR "LLVM include directory not found at ${LLVM_INCLUDE_DIRS}. Please ensure LLVM is properly installed.")
+endif()
 
 include(TableGen) # required by AddMLIR
 include(AddLLVM)
@@ -221,6 +332,22 @@ endif()
 if(LLVM_INCLUDE_DIRS)
   include_directories(${LLVM_INCLUDE_DIRS})
 endif()
+
+# Explicitly add MLIR and LLVM include paths for Windows build
+if(WIN32)
+  # Add MLIR include directory
+  set(MLIR_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  set(LLVM_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  
+  if(EXISTS ${MLIR_DEFAULT_INCLUDE_DIR})
+    include_directories(${MLIR_DEFAULT_INCLUDE_DIR})
+  endif()
+  
+  if(EXISTS ${LLVM_DEFAULT_INCLUDE_DIR})
+    include_directories(${LLVM_DEFAULT_INCLUDE_DIR})
+  endif()
+endif()
+
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include) # Tablegen'd files
 include_directories(${PROJECT_SOURCE_DIR}/third_party)
@@ -263,7 +390,18 @@ if(TRITON_BUILD_PYTHON_MODULE)
     find_package(pybind11 REQUIRED)
   endif()
 
+  # Add NVIDIA backend before python/src to ensure TritonNVIDIA target is available
+  # Only add NVIDIA backend if not disabled
+  if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
+    foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
+      # Ensure NVIDIA backend is built before the main python module
+      # This is a key fix for the Windows build - proper ordering
+      add_subdirectory(third_party/${CODEGEN_BACKEND})
+    endforeach()
+  endif()
+
   # Add the python/src subdirectory to build the libtriton module
+  # This must come AFTER the NVIDIA backend to ensure proper linking
   add_subdirectory(python/src)
 
   if (DEFINED TRITON_PLUGIN_DIRS)
@@ -280,13 +418,6 @@ if(TRITON_BUILD_PYTHON_MODULE)
       cmake_path(APPEND TRITON_BINARY_DIR "third_party" ${PLUGIN_NAME} OUTPUT_VARIABLE PLUGIN_DIR_BUILD_OUTPUT)
       message(STATUS "Building plugin '${PLUGIN_NAME}' from ${PLUGIN_DIR} with output ${PLUGIN_DIR_BUILD_OUTPUT}")
       add_subdirectory(${PLUGIN_DIR} ${PLUGIN_DIR_BUILD_OUTPUT})
-    endforeach()
-  endif()
-
-  # Only add NVIDIA backend if not disabled
-  if(NOT TRITON_DISABLE_NVIDIA_BACKEND)
-    foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
-      add_subdirectory(third_party/${CODEGEN_BACKEND})
     endforeach()
   endif()
 

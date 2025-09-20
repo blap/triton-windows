@@ -38,17 +38,6 @@ namespace nvgpu {
   }
 }
 
-bool NVGPUMemSemanticAttr::classof(::mlir::Attribute attr) {
-  return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 2)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 3)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 4)));
-}
-NVGPUMemSemanticAttr NVGPUMemSemanticAttr::get(::mlir::MLIRContext *context, NVGPUMemSemantic val) {
-  ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
-  ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<NVGPUMemSemanticAttr>(baseAttr);
-}
-NVGPUMemSemantic NVGPUMemSemanticAttr::getValue() const {
-  return static_cast<NVGPUMemSemantic>(::mlir::IntegerAttr::getInt());
-}
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -81,17 +70,6 @@ namespace nvgpu {
   }
 }
 
-bool NVGPUMemSyncScopeAttr::classof(::mlir::Attribute attr) {
-  return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 2)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 3)));
-}
-NVGPUMemSyncScopeAttr NVGPUMemSyncScopeAttr::get(::mlir::MLIRContext *context, NVGPUMemSyncScope val) {
-  ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
-  ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<NVGPUMemSyncScopeAttr>(baseAttr);
-}
-NVGPUMemSyncScope NVGPUMemSyncScopeAttr::getValue() const {
-  return static_cast<NVGPUMemSyncScope>(::mlir::IntegerAttr::getInt());
-}
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -139,17 +117,6 @@ namespace nvgpu {
   }
 }
 
-bool WGMMAEltTypeAttr::classof(::mlir::Attribute attr) {
-  return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 0)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 2)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 3)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 4)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 5)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 6)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 7)));
-}
-WGMMAEltTypeAttr WGMMAEltTypeAttr::get(::mlir::MLIRContext *context, WGMMAEltType val) {
-  ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
-  ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<WGMMAEltTypeAttr>(baseAttr);
-}
-WGMMAEltType WGMMAEltTypeAttr::getValue() const {
-  return static_cast<WGMMAEltType>(::mlir::IntegerAttr::getInt());
-}
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -179,17 +146,6 @@ namespace nvgpu {
   }
 }
 
-bool WGMMALayoutAttr::classof(::mlir::Attribute attr) {
-  return (((::llvm::isa<::mlir::IntegerAttr>(attr))) && ((::llvm::cast<::mlir::IntegerAttr>(attr).getType().isSignlessInteger(32)))) && (((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 0)) || ((::llvm::cast<::mlir::IntegerAttr>(attr).getInt() == 1)));
-}
-WGMMALayoutAttr WGMMALayoutAttr::get(::mlir::MLIRContext *context, WGMMALayout val) {
-  ::mlir::IntegerType intType = ::mlir::IntegerType::get(context, 32);
-  ::mlir::IntegerAttr baseAttr = ::mlir::IntegerAttr::get(intType, static_cast<uint32_t>(val));
-  return ::llvm::cast<WGMMALayoutAttr>(baseAttr);
-}
-WGMMALayout WGMMALayoutAttr::getValue() const {
-  return static_cast<WGMMALayout>(::mlir::IntegerAttr::getInt());
-}
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir

@@ -1,8 +1,18 @@
 # Check if MLIR is available by checking for a core MLIR target
+# If MLIR is not available, try to use fallback paths
 if(TARGET MLIRSupport)
   set(MLIR_AVAILABLE TRUE)
 else()
-  set(MLIR_AVAILABLE FALSE)
+  # Check if we have the necessary MLIR headers in fallback paths
+  if(EXISTS "${CMAKE_SOURCE_DIR}/llvm-project/mlir/include/mlir/Pass/Pass.h")
+    set(MLIR_AVAILABLE TRUE)
+    message(STATUS "Using fallback MLIR headers for NVIDIA backend")
+    # Set up include directories for fallback MLIR
+    include_directories("${CMAKE_SOURCE_DIR}/llvm-project/mlir/include")
+    include_directories("${CMAKE_SOURCE_DIR}/llvm-project/llvm/include")
+  else()
+    set(MLIR_AVAILABLE FALSE)
+  endif()
 endif()
 
 if(MLIR_AVAILABLE)
@@ -10,12 +20,14 @@ if(MLIR_AVAILABLE)
   # Use BEFORE keyword to ensure these paths are searched first
   include_directories(BEFORE ${CMAKE_BINARY_DIR}/third_party/nvidia/hopper/include)
   include_directories(BEFORE ${CMAKE_BINARY_DIR}/third_party/nvidia/include)
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-  include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+  include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include)
   
   # Add MLIR and LLVM include directories
   include_directories(${MLIR_INCLUDE_DIRS})
   include_directories(${LLVM_INCLUDE_DIRS})
+  # Add Triton include directories
+  include_directories(${CMAKE_SOURCE_DIR}/include)
   
   # Add Windows SDK and Visual Studio C++ include paths for Windows build
   if(WIN32)
@@ -47,41 +59,41 @@ if(MLIR_AVAILABLE)
         endif()
       endif()
     endif()
-    
-    # Add MLIR and Triton include paths for proper header resolution
-    include_directories(${CMAKE_SOURCE_DIR}/include)
-    include_directories(${CMAKE_BINARY_DIR}/include)
-    include_directories(${CMAKE_SOURCE_DIR}/lib)
-    include_directories(${CMAKE_SOURCE_DIR}/third_party)
   endif()
   
+  # Add subdirectories in the correct order to ensure TableGen files are generated
+  # Process include directory first to generate TableGen files
   add_subdirectory(include)
+  
+  # Process lib directory after include to ensure TableGen files are available
   add_subdirectory(lib)
   
-  # Build NVIDIA backend as a regular library instead of a plugin
+  # Build NVIDIA backend as a static library to avoid symbol conflicts
+  # This is a key fix for the Windows build - using STATIC instead of SHARED
   if(TRITON_BUILD_PYTHON_MODULE)
-    add_library(TritonNVIDIA SHARED ${CMAKE_CURRENT_SOURCE_DIR}/triton_nvidia.cc)
+    add_library(TritonNVIDIA STATIC ${CMAKE_CURRENT_SOURCE_DIR}/triton_nvidia.cc)
     target_link_libraries(TritonNVIDIA PRIVATE 
-      TritonNVIDIAGPUToLLVM 
-      NVGPUToLLVM
-      NVGPUIR
-      NVWSIR
-      NVWSTransforms
-      NVHopperTransforms
-      TritonIR
-      TritonGPUIR
-      TritonNvidiaGPUIR
-      TritonGPUToLLVM
-      TritonLLVMIR
-      TritonAnalysis
-      TritonTools
-      TritonTransforms
-      TritonGPUTransforms
-      TritonNvidiaGPUTransforms
-      MLIRUBToLLVM
       Python3::Module 
       pybind11::headers
+      # Link dlfcn-win32 for Windows dynamic loading support
       dlfcn
+      # Link NVWSTransforms to resolve NVWS pass symbols
+      # Fix for double .lib extension issue - link directly with the target
+      NVWSTransforms
+    )
+    
+    # Add specific include directories for TableGen files with build directory first
+    target_include_directories(TritonNVIDIA BEFORE PRIVATE
+      ${CMAKE_BINARY_DIR}/third_party/nvidia/include
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+      ${CMAKE_BINARY_DIR}/third_party/nvidia/hopper/include
+      ${CMAKE_CURRENT_SOURCE_DIR}/hopper/include
+    )
+    
+    # Set the output directory for the static library
+    set_target_properties(TritonNVIDIA PROPERTIES
+      ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Release
+      LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Release
     )
     set_property(GLOBAL APPEND PROPERTY TRITON_LIBS TritonNVIDIA)
   endif()

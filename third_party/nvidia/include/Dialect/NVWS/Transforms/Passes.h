@@ -28,15 +28,17 @@
 
 namespace mlir {
 namespace triton {
+namespace nvws {
 
 // Generate the pass class declarations.
 #define GEN_PASS_DECL
-#include "nvidia/include/Dialect/NVWS/Transforms/Passes.h.inc"
+#include "Dialect/NVWS/Transforms/Passes.h.inc"
 
 // Generate the code for registering passes.
 #define GEN_PASS_REGISTRATION
-#include "nvidia/include/Dialect/NVWS/Transforms/Passes.h.inc"
+#include "Dialect/NVWS/Transforms/Passes.h.inc"
 
+} // namespace nvws
 } // namespace triton
 } // namespace mlir
 #endif // DIALECT_NVWS_TRANSFORMS_PASSES_H_

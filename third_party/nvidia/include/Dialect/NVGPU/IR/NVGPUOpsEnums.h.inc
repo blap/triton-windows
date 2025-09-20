@@ -37,15 +37,6 @@ template <>
 inline ::std::optional<NVGPUMemSemantic> symbolizeEnum<NVGPUMemSemantic>(::llvm::StringRef str) {
   return symbolizeNVGPUMemSemantic(str);
 }
-
-class NVGPUMemSemanticAttr : public ::mlir::IntegerAttr {
-public:
-  using ValueType = NVGPUMemSemantic;
-  using ::mlir::IntegerAttr::IntegerAttr;
-  static bool classof(::mlir::Attribute attr);
-  static NVGPUMemSemanticAttr get(::mlir::MLIRContext *context, NVGPUMemSemantic val);
-  NVGPUMemSemantic getValue() const;
-};
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -151,15 +142,6 @@ template <>
 inline ::std::optional<NVGPUMemSyncScope> symbolizeEnum<NVGPUMemSyncScope>(::llvm::StringRef str) {
   return symbolizeNVGPUMemSyncScope(str);
 }
-
-class NVGPUMemSyncScopeAttr : public ::mlir::IntegerAttr {
-public:
-  using ValueType = NVGPUMemSyncScope;
-  using ::mlir::IntegerAttr::IntegerAttr;
-  static bool classof(::mlir::Attribute attr);
-  static NVGPUMemSyncScopeAttr get(::mlir::MLIRContext *context, NVGPUMemSyncScope val);
-  NVGPUMemSyncScope getValue() const;
-};
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -270,15 +252,6 @@ template <>
 inline ::std::optional<WGMMAEltType> symbolizeEnum<WGMMAEltType>(::llvm::StringRef str) {
   return symbolizeWGMMAEltType(str);
 }
-
-class WGMMAEltTypeAttr : public ::mlir::IntegerAttr {
-public:
-  using ValueType = WGMMAEltType;
-  using ::mlir::IntegerAttr::IntegerAttr;
-  static bool classof(::mlir::Attribute attr);
-  static WGMMAEltTypeAttr get(::mlir::MLIRContext *context, WGMMAEltType val);
-  WGMMAEltType getValue() const;
-};
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir
@@ -383,15 +356,6 @@ template <>
 inline ::std::optional<WGMMALayout> symbolizeEnum<WGMMALayout>(::llvm::StringRef str) {
   return symbolizeWGMMALayout(str);
 }
-
-class WGMMALayoutAttr : public ::mlir::IntegerAttr {
-public:
-  using ValueType = WGMMALayout;
-  using ::mlir::IntegerAttr::IntegerAttr;
-  static bool classof(::mlir::Attribute attr);
-  static WGMMALayoutAttr get(::mlir::MLIRContext *context, WGMMALayout val);
-  WGMMALayout getValue() const;
-};
 } // namespace nvgpu
 } // namespace triton
 } // namespace mlir

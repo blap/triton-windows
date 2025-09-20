@@ -23,6 +23,7 @@
 
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"  // Add this for TypeSwitch
 
 // clang-format off
 #include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
@@ -44,6 +45,10 @@ void mlir::triton::nvgpu::NVGPUDialect::initialize() {
       >();
 }
 
+// Include the attribute definitions with storage class implementations
+#define GET_ATTRDEF_CLASSES
+#include "Dialect/NVGPU/IR/NVGPUAttrDefs.cpp.inc"
+
 #define GET_OP_CLASSES
 #include "Dialect/NVGPU/IR/Ops.cpp.inc"
-#include "Dialect/NVGPU/IR/OpsEnums.cpp.inc"
+#include "Dialect/NVGPU/IR/NVGPUOpsEnums.cpp.inc"

@@ -11,15 +11,13 @@
 #include "mlir/IR/Value.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/Builders.h"
+// Replacing missing StringAttr.h with Attributes.h which contains StringAttr declaration
+#include "mlir/IR/Attributes.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/LLVM.h"
 
 // Add missing includes for LLVM types
-#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/Location.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Support/LLVM.h"
 #include "mlir/IR/Types.h"
 
 // Include TargetInfoBase for proper type handling
@@ -109,3 +107,11 @@ void populateTensorMemorySubviewOpToLLVMPattern(
 } // namespace mlir
 
 #endif
+
+
+
+
+
+
+
+

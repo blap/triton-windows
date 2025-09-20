@@ -13,62 +13,62 @@ public:
 
   bool supportMaximumMinimum() const override;
 
-  Value getClusterCTAId(RewriterBase &rewriter, Location loc) const override;
+  mlir::Value getClusterCTAId(mlir::RewriterBase &rewriter, mlir::Location loc) const override;
 
-  Value ballot(RewriterBase &rewriter, Location loc, Type type,
-               Value cmp) const override;
+  mlir::Value ballot(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Type type,
+               mlir::Value cmp) const override;
 
-  void storeDShared(RewriterBase &rewriter, Location loc, Value ptr,
-                    std::optional<Value> ctaId, Value val,
-                    Value pred) const override;
-  Value loadDShared(RewriterBase &rewriter, Location loc, Value ptr,
-                    std::optional<Value> ctaId, Type elemTy,
-                    Value pred) const override;
+  void storeDShared(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value ptr,
+                    std::optional<mlir::Value> ctaId, mlir::Value val,
+                    mlir::Value pred) const override;
+  mlir::Value loadDShared(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value ptr,
+                    std::optional<mlir::Value> ctaId, mlir::Type elemTy,
+                    mlir::Value pred) const override;
 
   // FIXME: Need to kill this function
-  bool canUseStMatrix(RankedTensorType tensorTy, ArrayRef<unsigned> repShape,
-                      ArrayRef<unsigned> paddedRepShape,
-                      ArrayRef<unsigned> order,
+  bool canUseStMatrix(mlir::RankedTensorType tensorTy, llvm::ArrayRef<unsigned> repShape,
+                      llvm::ArrayRef<unsigned> paddedRepShape,
+                      llvm::ArrayRef<unsigned> order,
                       int swizzleByteSize) const override;
 
   bool supportLdMatrix() const override { return computeCapability >= 75; }
   bool supportStMatrix() const override { return computeCapability >= 90; }
 
-  void storeMatrixShared(RewriterBase &rewriter, Location loc, Value ptr,
-                         Value val) const override;
+  void storeMatrixShared(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value ptr,
+                         mlir::Value val) const override;
 
-  Value shuffleXor(RewriterBase &rewriter, Location loc, Value val,
+  mlir::Value shuffleXor(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value val,
                    int i) const override;
-  Value shuffleUp(RewriterBase &rewriter, Location loc, Value val,
+  mlir::Value shuffleUp(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value val,
                   int i) const override;
-  Value shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
+  mlir::Value shuffleIdx(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value val,
                    int i) const override;
-  Value shuffleIdx(RewriterBase &rewriter, Location loc, Value val,
-                   Value i) const override;
+  mlir::Value shuffleIdx(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value val,
+                   mlir::Value i) const override;
 
-  Value programId(RewriterBase &rewriter, Location loc, ModuleOp moduleOp,
+  mlir::Value programId(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::ModuleOp moduleOp,
                   int axis) const override;
 
-  bool warpReduce(RewriterBase &rewriter, Location loc, SmallVector<Value> &acc,
+  bool warpReduce(mlir::RewriterBase &rewriter, mlir::Location loc, llvm::SmallVector<mlir::Value> &acc,
                   triton::ReduceOp op, unsigned numLaneToReduce,
                   unsigned interleave) const override;
 
-  std::string getMulhiFuncName(Type resultElementTy) const override;
+  std::string getMulhiFuncName(mlir::Type resultElementTy) const override;
 
-  void printf(RewriterBase &rewriter, Value formatStrStart,
-              int formatStrByteCount, ValueRange args,
-              ArrayRef<bool> isSigned = {}) const override;
+  void printf(mlir::RewriterBase &rewriter, mlir::Value formatStrStart,
+              int formatStrByteCount, mlir::ValueRange args,
+              llvm::ArrayRef<bool> isSigned = {}) const override;
 
-  void printf(RewriterBase &rewriter, StringRef msg, ValueRange args,
+  void printf(mlir::RewriterBase &rewriter, llvm::StringRef msg, mlir::ValueRange args,
 
-              ArrayRef<bool> isSigned = {}) const override;
+              llvm::ArrayRef<bool> isSigned = {}) const override;
 
-  void assertFail(RewriterBase &rewriter, Location loc, StringRef message,
-                  StringRef file, StringRef func, int line) const override;
+  void assertFail(mlir::RewriterBase &rewriter, mlir::Location loc, llvm::StringRef message,
+                  llvm::StringRef file, llvm::StringRef func, int line) const override;
 
   int getSharedAddressSpace() const override;
 
-  int getAddressSpace(Attribute addressSpace) const override;
+  int getAddressSpace(mlir::Attribute addressSpace) const override;
 
   bool supportVectorizedAtomics() const override;
 

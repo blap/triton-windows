@@ -1,7 +1,6 @@
-#include "PatternTritonGPUOpToLLVM.h"
-#include "TargetInfo.h"
-#include "Utility.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/IR/PatternMatch.h"
 #include "triton/Analysis/Allocation.h"
 #include "triton/Conversion/TritonGPUToLLVM/PatternTritonGPUOpToLLVM.h"
@@ -9,18 +8,31 @@
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
 #include "triton/Tools/LayoutUtils.h"
-namespace {
+#include "PatternTritonGPUOpToLLVM.h"
+#include "TargetInfo.h"
+#include "Utility.h"
 
+// Add missing includes for type definitions with correct paths
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Support/LLVM.h"
+#include "mlir/IR/Types.h"
+
+// Add using declarations for commonly used types
 using namespace mlir;
 using namespace mlir::triton;
-using namespace mlir::triton::gpu;
-using namespace mlir::triton::NVIDIA;
+
+namespace mlir {
+namespace triton {
+namespace gpu {
 
 LogicalResult lowerLdStMatrix(
     Location loc, RankedTensorType tensorTy, MemDescType memDescType,
     bool transpose, Value &src, // Input for stmatrix, output for ldmatrix
     Value smemBase, Type llvmElemTy, ConversionPatternRewriter &rewriter,
-    const TargetInfo &targetInfo, const LLVMTypeConverter *typeConverter,
+    const NVIDIA::TargetInfo &targetInfo, const LLVMTypeConverter *typeConverter,
     std::pair<size_t, Type> *const llvmOpCount = nullptr) {
   // Lower load via ldmatrix, store via stmatrix
 
@@ -242,9 +254,9 @@ LogicalResult lowerLdStMatrix(
   return success();
 }
 
-struct LocalLoadOpConversion
-    : public ConvertOpToLLVMPattern<triton::gpu::LocalLoadOp> {
+struct LocalLoadOpConversion : public ConvertOpToLLVMPattern<triton::gpu::LocalLoadOp> {
 public:
+  using OpAdaptor = typename triton::gpu::LocalLoadOp::Adaptor;
   LocalLoadOpConversion(const LLVMTypeConverter &converter,
                         const NVIDIA::TargetInfo &targetInfo,
                         PatternBenefit benefit = 1)
@@ -252,8 +264,7 @@ public:
         targetInfo(targetInfo) {}
 
   LogicalResult
-  matchAndRewrite(triton::gpu::LocalLoadOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  matchAndRewrite(triton::gpu::LocalLoadOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
     if (!op.getSrc())
       return failure();
     MemDescType memDescType = op.getSrc().getType();
@@ -269,7 +280,7 @@ public:
     for (bool transpose : {false, true}) {
       lowered = lowerLdStMatrix(op.getLoc(), dstTy, memDescType, transpose,
                                 values, smemBase, llvmElemTy, rewriter,
-                                targetInfo, getTypeConverter())
+                                targetInfo, getTypeConverter(), nullptr)
                     .succeeded();
       if (lowered) {
         break;
@@ -286,8 +297,9 @@ private:
   const NVIDIA::TargetInfo &targetInfo;
 };
 
-struct LocalAllocOpConversion
-    : public ConvertOpToLLVMPattern<triton::gpu::LocalAllocOp> {
+struct LocalAllocOpConversion : public ConvertOpToLLVMPattern<triton::gpu::LocalAllocOp> {
+public:
+  using OpAdaptor = typename triton::gpu::LocalAllocOp::Adaptor;
   LocalAllocOpConversion(const LLVMTypeConverter &converter,
                          const NVIDIA::TargetInfo &targetInfo,
                          PatternBenefit benefit = 1)
@@ -295,8 +307,7 @@ struct LocalAllocOpConversion
         targetInfo(targetInfo) {}
 
   LogicalResult
-  matchAndRewrite(triton::gpu::LocalAllocOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  matchAndRewrite(triton::gpu::LocalAllocOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
     if (!op.getSrc())
       return failure();
     MemDescType memDescType = op.getType();
@@ -311,7 +322,7 @@ struct LocalAllocOpConversion
     for (bool transpose : {false, true}) {
       lowered = lowerLdStMatrix(op.getLoc(), srcTy, memDescType, transpose, src,
                                 smemBase, llvmElemTy, rewriter, targetInfo,
-                                getTypeConverter())
+                                getTypeConverter(), nullptr)
                     .succeeded();
       if (lowered) {
         break;
@@ -334,8 +345,9 @@ private:
   const NVIDIA::TargetInfo &targetInfo;
 };
 
-struct LocalStoreOpConversion
-    : public ConvertOpToLLVMPattern<triton::gpu::LocalStoreOp> {
+struct LocalStoreOpConversion : public ConvertOpToLLVMPattern<triton::gpu::LocalStoreOp> {
+public:
+  using OpAdaptor = typename triton::gpu::LocalStoreOp::Adaptor;
   LocalStoreOpConversion(const LLVMTypeConverter &converter,
                          const NVIDIA::TargetInfo &targetInfo,
                          PatternBenefit benefit = 1)
@@ -343,8 +355,7 @@ struct LocalStoreOpConversion
         targetInfo(targetInfo) {}
 
   LogicalResult
-  matchAndRewrite(triton::gpu::LocalStoreOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  matchAndRewrite(triton::gpu::LocalStoreOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
     Type llvmElemTy =
         getTypeConverter()->convertType(op.getDst().getType().getElementType());
     SharedMemoryObject smemObj = LLVM::getSharedMemoryObjectFromStruct(
@@ -357,7 +368,7 @@ struct LocalStoreOpConversion
       lowered = lowerLdStMatrix(op.getLoc(), op.getSrc().getType(),
                                 op.getDst().getType(), transpose, src,
                                 smemObj.getBase(), llvmElemTy, rewriter,
-                                targetInfo, getTypeConverter())
+                                targetInfo, getTypeConverter(), nullptr)
                     .succeeded();
       if (lowered) {
         break;
@@ -373,7 +384,9 @@ struct LocalStoreOpConversion
 private:
   const NVIDIA::TargetInfo &targetInfo;
 };
-} // namespace
+} // namespace gpu
+} // namespace triton
+} // namespace mlir
 
 void mlir::triton::NVIDIA::populateMemoryOpToLLVMPatterns(
     ::mlir::LLVMTypeConverter &typeConverter,
@@ -381,11 +394,11 @@ void mlir::triton::NVIDIA::populateMemoryOpToLLVMPatterns(
     ::mlir::RewritePatternSet &patterns,
     ::mlir::PatternBenefit benefit) {
   // Backend optimized memory ops get higher benefit
-  patterns.add<LocalAllocOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
+  patterns.add<mlir::triton::gpu::LocalAllocOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                        benefit.getBenefit() + 1);
-  patterns.add<LocalStoreOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
+  patterns.add<mlir::triton::gpu::LocalStoreOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                        benefit.getBenefit() + 1);
-  patterns.add<LocalLoadOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
+  patterns.add<mlir::triton::gpu::LocalLoadOpConversion>(typeConverter, static_cast<const ::mlir::triton::NVIDIA::TargetInfo&>(targetInfo),
                                       benefit.getBenefit() + 1);
   mlir::triton::populateMemoryOpToLLVMPatterns(typeConverter, targetInfo,
                                                patterns, benefit);

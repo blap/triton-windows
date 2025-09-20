@@ -1,4 +1,6 @@
 #include "mlir/Support/LLVM.h"
+#include "mlir/IR/Types.h"
+#include "mlir/IR/Value.h"
 #include "triton/Conversion/TritonGPUToLLVM/PatternTritonGPUOpToLLVM.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"

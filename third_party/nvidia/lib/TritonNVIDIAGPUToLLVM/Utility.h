@@ -8,6 +8,7 @@
 
 // Added missing MLIR headers for type definitions
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -79,3 +80,4 @@ Value createCachePolicy(triton::EvictionPolicy opEvict,
 } // namespace mlir
 
 #endif
+
