@@ -341,7 +341,10 @@ void init_triton_ir(py::module &&m) {
       dialect->addInterfaces<mlir::LLVMTranslationDialectInterface>();
     });
     context.appendDialectRegistry(registry);
-    context.loadAllAvailableDialects();
+    // DO NOT call context.loadAllAvailableDialects() as it would try to load
+    // NVGPU dialect again, which is already registered in RegisterTritonDialects.h
+    // and would cause "LLVM ERROR: Dialect Attribute with name nvgpu. is already registered"
+    // context.loadAllAvailableDialects();
   });
 
   py::class_<Type>(m, "type", py::module_local())

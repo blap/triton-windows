@@ -1,4 +1,3 @@
-#include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "third_party/nvidia/include/Dialect/NVWS/IR/Dialect.h"
 #include "third_party/nvidia/include/NVGPUToLLVM/Passes.h"
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Passes.h"
@@ -95,13 +94,18 @@ void init_triton_nvidia(py::module &&m) {
   // load dialects
   m.def("load_dialects", [](mlir::MLIRContext &context) {
     mlir::DialectRegistry registry;
-    registry.insert<mlir::triton::nvidia_gpu::TritonNvidiaGPUDialect,
-                    mlir::triton::nvgpu::NVGPUDialect>();
-    registry.insert<mlir::triton::nvidia_gpu::TritonNvidiaGPUDialect,
-                    mlir::triton::nvws::NVWSDialect>();
+    // Only register TritonNvidiaGPUDialect and NVWSDialect
+    // NVGPUDialect is already registered in the main triton library (RegisterTritonDialects.h)
+    // and should not be registered again to avoid "already registered" errors
+    registry.insert<mlir::triton::nvidia_gpu::TritonNvidiaGPUDialect>();
+    registry.insert<mlir::triton::nvws::NVWSDialect>();
     mlir::registerNVVMDialectTranslation(registry);
     context.appendDialectRegistry(registry);
-    context.loadAllAvailableDialects();
+    
+    // DO NOT call context.loadAllAvailableDialects() as it would try to load
+    // NVGPUDialect again, which is already registered in the main triton library
+    // and would cause "LLVM ERROR: Dialect Attribute with name nvgpu. is already registered"
+    // context.loadAllAvailableDialects();
   });
 
   // Set short point option, this needs to be set before setting the data

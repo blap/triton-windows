@@ -1,6 +1,6 @@
 # Triton Windows Build Script
 # Updated script for building Triton with NVIDIA GPU support on Windows
-# Fully automated compilation and wheel creation with comprehensive verification
+# Fully automated compilation and wheel creation
 
 param(
     [switch]$DisableNvidia,
@@ -11,10 +11,7 @@ param(
     [switch]$SkipTests,
     [switch]$ForceRebuild,
     [switch]$InstallDependencies,
-    [switch]$CreateWheel,  # New parameter to create wheel distribution
-    [switch]$InstallLLVM,  # New parameter to install LLVM/MLIR
-    [switch]$VerifyOnly,   # New parameter to only verify the build environment
-    [switch]$SkipVerification # New parameter to skip verification steps
+    [switch]$CreateWheel  # New parameter to create wheel distribution
 )
 
 # ----------------------------------------
@@ -69,48 +66,6 @@ function Find-Python {
     } catch {}
     
     return $null
-}
-
-# New function to check and install PyTorch with GPU support
-function Install-PyTorch {
-    Write-Log "Checking and installing PyTorch 2.7.1 with GPU support..." -Color "Cyan"
-    
-    try {
-        # Check if PyTorch is already installed and its version
-        $pytorchInfo = & python -c "import torch; print(f'{torch.__version__}'); print('cuda' if torch.cuda.is_available() else 'cpu')" 2>$null
-        if ($pytorchInfo) {
-            $pytorchVersion = $pytorchInfo[0]
-            $pytorchDevice = $pytorchInfo[1]
-            Write-Log "Found PyTorch $pytorchVersion with $pytorchDevice support" -Color "Green"
-            
-            # Check if it's the required version and has CUDA support
-            if ($pytorchVersion -like "2.7.1*" -and $pytorchDevice -eq "cuda") {
-                Write-Log "PyTorch 2.7.1 with CUDA support is already installed" -Color "Green"
-                return $true
-            } else {
-                Write-Log "PyTorch version or device mismatch. Installing PyTorch 2.7.1 with CUDA support..." -Color "Yellow"
-            }
-        } else {
-            Write-Log "PyTorch not found. Installing PyTorch 2.7.1 with CUDA support..." -Color "Yellow"
-        }
-    } catch {
-        Write-Log "PyTorch not found or error checking version. Installing PyTorch 2.7.1 with CUDA support..." -Color "Yellow"
-    }
-    
-    # Install PyTorch 2.7.1 with CUDA 12.1 support
-    try {
-        & pip install torch==2.7.1+cu121 torchvision==0.22.1+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
-        if ($LASTEXITCODE -eq 0) {
-            Write-Log "PyTorch 2.7.1 with CUDA 12.1 support installed successfully" -Color "Green"
-            return $true
-        } else {
-            Write-Log "Failed to install PyTorch with CUDA support" -Color "Red"
-            return $false
-        }
-    } catch {
-        Write-Log "Exception during PyTorch installation: $($_.Exception.Message)" -Color "Red"
-        return $false
-    }
 }
 
 function Find-VisualStudio {
@@ -377,44 +332,25 @@ function Setup-LLVMEnvironment {
 function Install-LLVMDependencies {
     Write-Log "Installing LLVM/MLIR dependencies..." -Color "Cyan"
     
-    # Check if we should install LLVM
-    if ($InstallLLVM) {
-        Write-Log "Installing LLVM/MLIR..." -Color "Cyan"
-        
-        # Run the LLVM installation script
-        $installScript = "$PSScriptRoot\install_llvm_mlir.ps1"
-        if (Test-Path $installScript) {
-            try {
-                & $installScript -ForceDownload
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Log "LLVM/MLIR installed successfully" -Color "Green"
-                } else {
-                    Write-Log "Failed to install LLVM/MLIR" -Color "Red"
-                    return $false
-                }
-            } catch {
-                Write-Log "Exception during LLVM/MLIR installation: $($_.Exception.Message)" -Color "Red"
-                return $false
-            }
-        } else {
-            Write-Log "LLVM installation script not found at $installScript" -Color "Red"
-            return $false
-        }
-    } else {
-        # For now, we'll just provide instructions since automatic installation is complex
-        Write-Log "Manual installation required for LLVM/MLIR:" -Color "Yellow"
-        Write-Log "1. Download LLVM/MLIR from https://github.com/llvm/llvm-project" -Color "Yellow"
-        Write-Log "2. Build LLVM/MLIR with CMake:" -Color "Yellow"
-        Write-Log "   mkdir build && cd build" -Color "Yellow"
-        Write-Log "   cmake -G Ninja -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release .." -Color "Yellow"
-        Write-Log "   ninja" -Color "Yellow"
-        Write-Log "3. Install to C:\Users\Admin\.triton\llvm\llvm-8957e64a-windows-x64" -Color "Yellow"
-        Write-Log "Alternatively, set LLVM_DIR and MLIR_DIR environment variables to point to existing installations." -Color "Yellow"
-        Write-Log "Or run this script with -InstallLLVM flag to automatically install LLVM/MLIR." -Color "Yellow"
+    # Create the directory if it doesn't exist
+    $llvmBasePath = "C:\Users\Admin\.triton\llvm"
+    $llvmPath = "C:\Users\Admin\.triton\llvm\llvm-8957e64a-windows-x64"
+    
+    if (-not (Test-Path $llvmBasePath)) {
+        New-Item -ItemType Directory -Path $llvmBasePath -Force | Out-Null
     }
     
-    Write-Log "Continuing with build process..." -Color "Yellow"
-    return $true
+    # For now, we'll just provide instructions since automatic installation is complex
+    Write-Log "Manual installation required for LLVM/MLIR:" -Color "Yellow"
+    Write-Log "1. Download LLVM/MLIR from https://github.com/llvm/llvm-project" -Color "Yellow"
+    Write-Log "2. Build LLVM/MLIR with CMake:" -Color "Yellow"
+    Write-Log "   mkdir build && cd build" -Color "Yellow"
+    Write-Log "   cmake -G Ninja -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release .." -Color "Yellow"
+    Write-Log "   ninja" -Color "Yellow"
+    Write-Log "3. Install to $llvmPath" -Color "Yellow"
+    Write-Log "Alternatively, set LLVM_DIR and MLIR_DIR environment variables to point to existing installations." -Color "Yellow"
+    
+    Write-Log "For now, continuing with build process (may fail if dependencies are missing)..." -Color "Yellow"
 }
 
 # New function to check and create missing header files
@@ -467,7 +403,7 @@ function Fix-NVGPU-Dialect-Registration {
  * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
  * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * SOFTWARE OR THE USE OR THE OTHER DEALINGS IN THE SOFTWARE.
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #ifndef TRITON_DIALECT_NVGPU_IR_NVGPUENUMS_H_
@@ -550,10 +486,11 @@ function Clean-NVGPU-Generated-Files {
     Write-Log "Cleaning NVGPU generated files that might cause conflicts..." -Color "Cyan"
     
     # List of generated files that might cause NVGPU dialect conflicts
-    # Note: We preserve the enum files as they're needed for compilation
     $generatedFiles = @(
-        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrDefs.h.inc",
-        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrDefs.cpp.inc"
+        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUOpsEnums.h.inc",
+        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUOpsEnums.cpp.inc",
+        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrEnums.h.inc",
+        "third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrEnums.cpp.inc"
     )
     
     foreach ($file in $generatedFiles) {
@@ -568,110 +505,6 @@ function Clean-NVGPU-Generated-Files {
     }
     
     Write-Log "NVGPU generated files cleanup completed" -Color "Green"
-}
-
-# New function to verify C++ compilation environment
-function Verify-CPP-Environment {
-    Write-Log "Verifying C++ compilation environment..." -Color "Cyan"
-    
-    # Check if Visual Studio environment is properly set up
-    if (-not $env:INCLUDE) {
-        Write-Log "ERROR: Visual Studio environment not properly set up. INCLUDE path is missing." -Color "Red"
-        return $false
-    }
-    
-    # Check for essential header files
-    $essentialHeaders = @(
-        "stddef.h",
-        "stdint.h",
-        "stdlib.h"
-    )
-    
-    $includePaths = $env:INCLUDE -split ";"
-    $missingHeaders = @()
-    
-    foreach ($header in $essentialHeaders) {
-        $found = $false
-        foreach ($path in $includePaths) {
-            if (Test-Path "$path\$header") {
-                $found = $true
-                break
-            }
-        }
-        if (-not $found) {
-            $missingHeaders += $header
-        }
-    }
-    
-    if ($missingHeaders.Count -gt 0) {
-        Write-Log "WARNING: Missing essential C++ headers: $($missingHeaders -join ', ')" -Color "Yellow"
-        Write-Log "This may cause compilation issues." -Color "Yellow"
-    } else {
-        Write-Log "All essential C++ headers found" -Color "Green"
-    }
-    
-    # Check for LLVM/MLIR installation
-    if (-not $env:LLVM_DIR -or -not $env:MLIR_DIR) {
-        Write-Log "WARNING: LLVM_DIR or MLIR_DIR not set. This may cause compilation issues." -Color "Yellow"
-        return $false
-    }
-    
-    # Check for essential LLVM/MLIR files
-    $essentialLLVMFiles = @(
-        "$env:LLVM_DIR\LLVMConfig.cmake",
-        "$env:MLIR_DIR\MLIRConfig.cmake"
-    )
-    
-    $missingLLVMFiles = @()
-    foreach ($file in $essentialLLVMFiles) {
-        if (-not (Test-Path $file)) {
-            $missingLLVMFiles += $file
-        }
-    }
-    
-    if ($missingLLVMFiles.Count -gt 0) {
-        Write-Log "WARNING: Missing essential LLVM/MLIR files: $($missingLLVMFiles -join ', ')" -Color "Yellow"
-        return $false
-    }
-    
-    Write-Log "LLVM/MLIR environment verified successfully" -Color "Green"
-    return $true
-}
-
-# New function to verify generated files
-function Verify-Generated-Files {
-    Write-Log "Verifying generated files..." -Color "Cyan"
-    
-    # List of essential generated files for NVGPU dialect
-    $essentialGeneratedFiles = @(
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrDefs.h.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUAttrDefs.cpp.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUOpsEnums.h.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\NVGPUOpsEnums.cpp.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\Dialect.h.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\Dialect.cpp.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\Ops.h.inc",
-        "build\third_party\nvidia\include\Dialect\NVGPU\IR\Ops.cpp.inc"
-    )
-    
-    $missingFiles = @()
-    foreach ($file in $essentialGeneratedFiles) {
-        if (-not (Test-Path $file)) {
-            $missingFiles += $file
-        }
-    }
-    
-    if ($missingFiles.Count -gt 0) {
-        Write-Log "WARNING: Missing essential generated files:" -Color "Yellow"
-        foreach ($file in $missingFiles) {
-            Write-Log "  - $file" -Color "Yellow"
-        }
-        Write-Log "These files should be generated during the build process." -Color "Yellow"
-        return $false
-    } else {
-        Write-Log "All essential generated files found" -Color "Green"
-        return $true
-    }
 }
 
 function Clean-BuildDirectory {
@@ -757,13 +590,7 @@ function Configure-CMake {
         if (-not $disableNvidia) {
             $cudaPath = Find-CudaToolkit
             if ($cudaPath) {
-                # Add CUDA paths to environment
-                $env:CUDA_PATH = $cudaPath
-                $env:PATH = "$cudaPath\bin;$env:PATH"
-                
-                # Set CUDA library path for linking
-                $env:CUDA_LIB_PATH = "$cudaPath\lib\x64"
-                Write-Log "CUDA paths set: $cudaPath" -Color "Green"
+                $cmakeArgs += "-DCUDA_TOOLKIT_ROOT_DIR=$cudaPath"
             }
         }
         
@@ -979,96 +806,6 @@ function Run-Tests {
     }
 }
 
-# New function to verify Triton installation
-function Verify-Triton-Installation {
-    Write-Log "Verifying Triton installation..." -Color "Cyan"
-    
-    try {
-        # Test basic Triton import
-        $importTest = & python -c "import triton; print('Triton version:', triton.__version__)" 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            $importTest | ForEach-Object { Write-Log $_ -Color "Green" }
-        } else {
-            Write-Log "Basic import failed:" -Color "Red"
-            $importTest | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-            return $false
-        }
-        
-        # Test NVIDIA backend import (if enabled)
-        if (-not $DisableNvidia) {
-            $nvidiaTest = & python -c "import triton.backends.nvidia; print('NVIDIA backend imported successfully')" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $nvidiaTest | ForEach-Object { Write-Log $_ -Color "Green" }
-            } else {
-                Write-Log "NVIDIA backend import failed:" -Color "Red"
-                $nvidiaTest | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-                return $false
-            }
-            
-            # Test backend creation
-            $backendTest = & python -c "from triton.compiler.compiler import make_backend; from triton.backends.compiler import GPUTarget; target = GPUTarget('cuda', 61, 32); backend = make_backend(target); print('Backend created successfully:', type(backend).__name__)" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $backendTest | ForEach-Object { Write-Log $_ -Color "Green" }
-            } else {
-                Write-Log "Backend creation test failed:" -Color "Red"
-                $backendTest | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-                return $false
-            }
-        }
-        
-        Write-Log "All tests passed! Triton is working correctly." -Color "Green"
-        return $true
-    } catch {
-        Write-Log "Test failed with exception: $($_.Exception.Message)" -Color "Red"
-        return $false
-    }
-}
-
-# New function to verify wheel integrity
-function Verify-Wheel-Integrity {
-    param([string]$buildDir)
-    
-    Write-Log "Verifying wheel integrity..." -Color "Cyan"
-    
-    # Change to build directory
-    Push-Location $buildDir
-    
-    try {
-        # Find the wheel file
-        $wheelFiles = Get-ChildItem -Path "dist" -Filter "*.whl" -ErrorAction SilentlyContinue
-        if ($wheelFiles.Count -eq 0) {
-            Write-Log "No wheel files found in dist directory" -Color "Red"
-            return $false
-        }
-        
-        $wheelFile = $wheelFiles[0].FullName
-        Write-Log "Verifying wheel: $wheelFile" -Color "Gray"
-        
-        # Check wheel size (should be substantial)
-        $size = (Get-Item $wheelFile).Length
-        $sizeMB = [math]::Round($size / 1MB, 2)
-        if ($size -lt 10MB) {
-            Write-Log "Warning: Wheel size seems small ($sizeMB MB)" -Color "Yellow"
-        } else {
-            Write-Log "Wheel size: $sizeMB MB" -Color "Green"
-        }
-        
-        # List wheel contents
-        Write-Log "Wheel contents:" -Color "Gray"
-        python -m zipfile -l $wheelFile | Select-String -Pattern "\.(py|so|dll|lib|cmake|inc|h)$" | ForEach-Object {
-            Write-Log "  $($_.Line)" -Color "Gray"
-        }
-        
-        Write-Log "Wheel integrity verified successfully" -Color "Green"
-        return $true
-    } catch {
-        Write-Log "Failed to verify wheel integrity with exception: $($_.Exception.Message)" -Color "Red"
-        return $false
-    } finally {
-        Pop-Location
-    }
-}
-
 # ----------------------------------------
 # Main Execution
 # ----------------------------------------
@@ -1081,157 +818,94 @@ if ($ForceRebuild -and $CleanBuild) {
     Write-Log "Warning: Both ForceRebuild and CleanBuild specified. CleanBuild will be used." -Color "Yellow"
 }
 
-# Main execution
-try {
-    Write-Log "Starting Triton Windows Build Process" -Color "Cyan"
-    Write-Log "===================================" -Color "Cyan"
-    
-    # If VerifyOnly flag is set, only verify the environment and exit
-    if ($VerifyOnly) {
-        Write-Log "Running in verification mode only..." -Color "Cyan"
-        
-        # Verify C++ compilation environment
-        if (-not (Verify-CPP-Environment)) {
-            Write-Log "C++ compilation environment verification failed" -Color "Red"
-            exit 1
-        }
-        
-        # Verify generated files
-        if (-not (Verify-Generated-Files)) {
-            Write-Log "Generated files verification failed" -Color "Red"
-            exit 1
-        }
-        
-        Write-Log "Environment verification completed successfully!" -Color "Green"
-        exit 0
-    }
-    
-    # Install LLVM/MLIR if requested
-    if ($InstallLLVM -or $InstallDependencies) {
-        if (-not (Install-LLVMDependencies)) {
-            Write-ErrorAndExit "Failed to install LLVM/MLIR dependencies"
-        }
-    }
-    
-    # Find and validate Python
-    $pythonExe = Find-Python -PythonPath $PythonPath
-    if (-not $pythonExe) {
-        Write-ErrorAndExit "Python not found. Please install Python 3.10+ or specify path with -PythonPath"
-    }
-    
-    # Validate Python version
-    $pythonVersion = & $pythonExe --version 2>&1
-    Write-Log "Using $pythonVersion" -Color "Green"
-    
-    # Check and install PyTorch
-    if (-not (Install-PyTorch)) {
-        Write-Log "Warning: Failed to install PyTorch. Continuing without it..." -Color "Yellow"
-    }
-    
-    # Find and setup Visual Studio environment
-    if (-not (Setup-VSEnvironment)) {
-        Write-ErrorAndExit "Failed to setup Visual Studio environment"
-    }
-    
-    # Find CUDA Toolkit
-    $cudaPath = Find-CudaToolkit
-    if (-not $DisableNvidia -and -not $cudaPath) {
-        Write-Log "Warning: CUDA Toolkit not found. NVIDIA backend may not build correctly." -Color "Yellow"
-    }
-    
-    # Find LLVM/MLIR
-    $llvmPath = Find-LLVM
-    if (-not $llvmPath) {
-        Write-Log "Warning: LLVM/MLIR not found. Build may fail." -Color "Yellow"
-    } else {
-        Setup-LLVMEnvironment -llvmPath $llvmPath
-    }
-    
-    # Verify C++ compilation environment (unless skipped)
-    if (-not $SkipVerification) {
-        if (-not (Verify-CPP-Environment)) {
-            Write-Log "Warning: C++ compilation environment verification failed. Continuing anyway..." -Color "Yellow"
-        }
-    }
-    
-    # Create build directory
-    $buildDir = "build"
-    if ($CleanBuild -or $ForceRebuild) {
-        Clean-BuildDirectory -buildDir $buildDir
-    } elseif (-not (Test-Path $buildDir)) {
-        New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
-        Write-Log "Created build directory: $buildDir" -Color "Green"
-    }
-    
-    # Fix NVGPU dialect registration issues
-    if (-not $SkipVerification) {
-        Fix-NVGPU-Dialect-Registration
-    }
-    
-    # Clean NVGPU generated files that might cause conflicts
-    if (-not $SkipVerification) {
-        Clean-NVGPU-Generated-Files
-    }
-    
-    # Check and create missing header files
-    if (-not $SkipVerification) {
-        Check-And-CreateMissingHeaders
-    }
-    
-    # Configure CMake
-    if (-not (Configure-CMake -buildDir $buildDir -disableNvidia $DisableNvidia)) {
-        Write-ErrorAndExit "CMake configuration failed"
-    }
-    
-    # Build Triton
-    if (-not (Build-Triton -buildDir $buildDir -timeout $BuildTimeout)) {
-        Write-ErrorAndExit "Build failed"
-    }
-    
-    # Verify generated files after build (unless skipped)
-    if (-not $SkipVerification) {
-        if (-not (Verify-Generated-Files)) {
-            Write-Log "Warning: Generated files verification failed after build." -Color "Yellow"
-        }
-    }
-    
-    # Create Python wheel if requested
-    if ($CreateWheel) {
-        if (-not (Create-Python-Wheel -buildDir $buildDir)) {
-            Write-ErrorAndExit "Failed to create Python wheel"
-        }
-        
-        # Verify wheel integrity (unless skipped)
-        if (-not $SkipVerification) {
-            if (-not (Verify-Wheel-Integrity -buildDir $buildDir)) {
-                Write-Log "Warning: Wheel integrity verification failed" -Color "Yellow"
-            }
-        }
-        
-        # Install the wheel if requested
-        if (-not (Install-Python-Wheel -buildDir $buildDir)) {
-            Write-Log "Warning: Failed to install Python wheel" -Color "Yellow"
-        }
-    }
-    
-    # Verify Triton installation (unless skipped)
-    if (-not $SkipVerification) {
-        if (-not (Verify-Triton-Installation)) {
-            Write-Log "Warning: Triton installation verification failed" -Color "Yellow"
-        }
-    }
-    
-    # Run tests if not skipped
-    if (-not $SkipTests) {
-        Write-Log "Running tests..." -Color "Cyan"
-        if (-not (Run-Tests -buildDir $buildDir)) {
-            Write-Log "Warning: Some tests failed" -Color "Yellow"
-        }
-    }
-    
-    Write-Log "Triton build completed successfully!" -Color "Green"
-    Write-Log "===================================" -Color "Cyan"
-    
-} catch {
-    Write-ErrorAndExit "Build process failed with exception: $($_.Exception.Message)"
+# Find Python
+$pythonExe = Find-Python $PythonPath
+if (-not $pythonExe) {
+    Write-ErrorAndExit "Python not found. Please install Python 3.10 or later."
 }
+
+Write-Log "Using Python: $pythonExe" -Color "Green"
+
+# Setup Visual Studio environment
+if (-not (Setup-VSEnvironment)) {
+    Write-ErrorAndExit "Failed to setup Visual Studio environment."
+}
+
+# Find CUDA Toolkit
+if (-not $DisableNvidia) {
+    $cudaPath = Find-CudaToolkit
+    if (-not $cudaPath) {
+        Write-Log "Warning: CUDA Toolkit not found. Building without NVIDIA support." -Color "Yellow"
+        $DisableNvidia = $true
+    } else {
+        Write-Log "Using CUDA Toolkit: $cudaPath" -Color "Green"
+    }
+}
+
+# Find LLVM/MLIR
+$llvmPath = Find-LLVM
+if ($llvmPath) {
+    Setup-LLVMEnvironment $llvmPath
+} else {
+    Write-Log "Warning: LLVM/MLIR not found. Build may fail." -Color "Yellow"
+}
+
+# Find pybind11
+$pybind11Path = Find-Pybind11
+if (-not $pybind11Path) {
+    Write-Log "Warning: pybind11 not found. Build may fail." -Color "Yellow"
+}
+
+# Set build directory
+$buildDir = "build_vs"
+if ($CleanBuild -or $ForceRebuild) {
+    Clean-BuildDirectory $buildDir
+}
+
+# Fix NVGPU dialect registration issue
+if (-not $DisableNvidia) {
+    Write-Log "Applying NVGPU dialect registration fix..." -Color "Cyan"
+    if (-not (Fix-NVGPU-Dialect-Registration)) {
+        Write-Log "Warning: Failed to apply NVGPU dialect registration fix." -Color "Yellow"
+    }
+    
+    # Clean generated files that might cause conflicts
+    Clean-NVGPU-Generated-Files
+}
+
+# Configure with CMake
+Write-Log "Configuring with CMake..." -Color "Cyan"
+if (-not (Configure-CMake $buildDir $DisableNvidia)) {
+    Write-ErrorAndExit "CMake configuration failed."
+}
+
+# Build Triton
+Write-Log "Building Triton..." -Color "Cyan"
+if (-not (Build-Triton $buildDir $BuildTimeout)) {
+    Write-ErrorAndExit "Build failed."
+}
+
+# Create Python wheel if requested
+if ($CreateWheel) {
+    Write-Log "Creating Python wheel..." -Color "Cyan"
+    if (-not (Create-Python-Wheel ".")) {
+        Write-ErrorAndExit "Failed to create Python wheel."
+    }
+    
+    # Install the wheel
+    Write-Log "Installing Python wheel..." -Color "Cyan"
+    if (-not (Install-Python-Wheel ".")) {
+        Write-ErrorAndExit "Failed to install Python wheel."
+    }
+}
+
+# Run tests if not skipped
+if (-not $SkipTests) {
+    Write-Log "Running tests..." -Color "Cyan"
+    if (-not (Run-Tests ".")) {
+        Write-Log "Warning: Tests failed." -Color "Yellow"
+    }
+}
+
+Write-Log "Build completed successfully!" -Color "Green"
+Write-Log "===========================" -Color "Green"

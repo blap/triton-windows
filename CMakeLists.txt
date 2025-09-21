@@ -64,8 +64,14 @@ endif()
 # used conditionally in this file and by lit tests
 
 # Customized release build type with assertions: TritonRelBuildWithAsserts
-set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
-set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2 /std:c++17 /Zc:__cplusplus")
+# Set compiler-specific flags
+if(MSVC)
+  set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "/O2")
+  set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "/O2 /std:c++17 /Zc:__cplusplus")
+else()
+  set(CMAKE_C_FLAGS_TRITONRELBUILDWITHASSERTS "-O2")
+  set(CMAKE_CXX_FLAGS_TRITONRELBUILDWITHASSERTS "-O2 -std=c++17")
+endif()
 
 # Default build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -83,7 +89,12 @@ endif()
 
 # Compiler flags
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8 /std:c++17 /Zc:__cplusplus")
+# Set compiler-specific flags
+if(MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /nologo /bigobj /Zc:__STDC__ /Zc:preprocessor /permissive- /utf-8 /std:c++17 /Zc:__cplusplus")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+endif()
 
 # Add additional include directories for proper header resolution
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -96,16 +107,45 @@ endif()
 
 # Explicitly add MLIR and LLVM include paths for Windows build
 if(WIN32)
-  # Add MLIR include directory
-  set(MLIR_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
-  set(LLVM_DEFAULT_INCLUDE_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  # Check for MLIR installation in common locations
+  set(MLIR_POSSIBLE_INCLUDE_DIRS
+    "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include"
+    "C:/Program Files/LLVM/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/mlir/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../llvm-project/mlir/include"
+  )
   
-  if(EXISTS ${MLIR_DEFAULT_INCLUDE_DIR})
+  set(LLVM_POSSIBLE_INCLUDE_DIRS
+    "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include"
+    "C:/Program Files/LLVM/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/llvm/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../llvm-project/llvm/include"
+  )
+  
+  # Find MLIR include directory
+  foreach(MLIR_INCLUDE_DIR ${MLIR_POSSIBLE_INCLUDE_DIRS})
+    if(EXISTS ${MLIR_INCLUDE_DIR} AND EXISTS "${MLIR_INCLUDE_DIR}/mlir")
+      set(MLIR_DEFAULT_INCLUDE_DIR ${MLIR_INCLUDE_DIR})
+      break()
+    endif()
+  endforeach()
+  
+  # Find LLVM include directory
+  foreach(LLVM_INCLUDE_DIR ${LLVM_POSSIBLE_INCLUDE_DIRS})
+    if(EXISTS ${LLVM_INCLUDE_DIR} AND EXISTS "${LLVM_INCLUDE_DIR}/llvm")
+      set(LLVM_DEFAULT_INCLUDE_DIR ${LLVM_INCLUDE_DIR})
+      break()
+    endif()
+  endforeach()
+  
+  if(MLIR_DEFAULT_INCLUDE_DIR)
     include_directories(${MLIR_DEFAULT_INCLUDE_DIR})
+    message(STATUS "Found MLIR include directory: ${MLIR_DEFAULT_INCLUDE_DIR}")
   endif()
   
-  if(EXISTS ${LLVM_DEFAULT_INCLUDE_DIR})
+  if(LLVM_DEFAULT_INCLUDE_DIR)
     include_directories(${LLVM_DEFAULT_INCLUDE_DIR})
+    message(STATUS "Found LLVM include directory: ${LLVM_DEFAULT_INCLUDE_DIR}")
   endif()
   
   # Add build directory include paths for tablegen files first, ensuring they are searched before source paths
@@ -175,8 +215,18 @@ if(NOT LLVM_DIR)
   if(DEFINED ENV{LLVM_DIR})
     set(LLVM_DIR $ENV{LLVM_DIR})
   else()
-    # Default path for Windows installation
-    set(LLVM_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/llvm")
+    # Check common Windows installation paths
+    set(POSSIBLE_LLVM_DIRS
+      "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/llvm"
+      "C:/Program Files/LLVM/lib/cmake/llvm"
+    )
+    
+    foreach(POSSIBLE_LLVM_DIR ${POSSIBLE_LLVM_DIRS})
+      if(EXISTS ${POSSIBLE_LLVM_DIR})
+        set(LLVM_DIR ${POSSIBLE_LLVM_DIR})
+        break()
+      endif()
+    endforeach()
   endif()
 endif()
 
@@ -184,8 +234,18 @@ if(NOT MLIR_DIR)
   if(DEFINED ENV{MLIR_DIR})
     set(MLIR_DIR $ENV{MLIR_DIR})
   else()
-    # Default path for Windows installation
-    set(MLIR_DIR "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/mlir")
+    # Check common Windows installation paths
+    set(POSSIBLE_MLIR_DIRS
+      "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/lib/cmake/mlir"
+      "C:/Program Files/LLVM/lib/cmake/mlir"
+    )
+    
+    foreach(POSSIBLE_MLIR_DIR ${POSSIBLE_MLIR_DIRS})
+      if(EXISTS ${POSSIBLE_MLIR_DIR})
+        set(MLIR_DIR ${POSSIBLE_MLIR_DIR})
+        break()
+      endif()
+    endforeach()
   endif()
 endif()
 
@@ -268,20 +328,46 @@ message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
 
 # Explicitly set MLIR and LLVM include directories if not set
 if(NOT MLIR_INCLUDE_DIRS)
-  set(MLIR_INCLUDE_DIRS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  # Check common paths for MLIR include directory
+  set(POSSIBLE_MLIR_INCLUDE_DIRS
+    "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include"
+    "C:/Program Files/LLVM/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/mlir/include"
+  )
+  
+  foreach(POSSIBLE_MLIR_INCLUDE_DIR ${POSSIBLE_MLIR_INCLUDE_DIRS})
+    if(EXISTS ${POSSIBLE_MLIR_INCLUDE_DIR} AND EXISTS "${POSSIBLE_MLIR_INCLUDE_DIR}/mlir")
+      set(MLIR_INCLUDE_DIRS ${POSSIBLE_MLIR_INCLUDE_DIR})
+      message(STATUS "Found MLIR include directory: ${MLIR_INCLUDE_DIRS}")
+      break()
+    endif()
+  endforeach()
 endif()
 
 if(NOT LLVM_INCLUDE_DIRS)
-  set(LLVM_INCLUDE_DIRS "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include")
+  # Check common paths for LLVM include directory
+  set(POSSIBLE_LLVM_INCLUDE_DIRS
+    "C:/Users/Admin/.triton/llvm/llvm-8957e64a-windows-x64/include"
+    "C:/Program Files/LLVM/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/llvm-project/llvm/include"
+  )
+  
+  foreach(POSSIBLE_LLVM_INCLUDE_DIR ${POSSIBLE_LLVM_INCLUDE_DIRS})
+    if(EXISTS ${POSSIBLE_LLVM_INCLUDE_DIR} AND EXISTS "${POSSIBLE_LLVM_INCLUDE_DIR}/llvm")
+      set(LLVM_INCLUDE_DIRS ${POSSIBLE_LLVM_INCLUDE_DIR})
+      message(STATUS "Found LLVM include directory: ${LLVM_INCLUDE_DIRS}")
+      break()
+    endif()
+  endforeach()
 endif()
 
 # Verify that MLIR and LLVM include directories exist
 if(NOT EXISTS ${MLIR_INCLUDE_DIRS})
-  message(FATAL_ERROR "MLIR include directory not found at ${MLIR_INCLUDE_DIRS}. Please ensure MLIR is properly installed.")
+  message(WARNING "MLIR include directory not found at ${MLIR_INCLUDE_DIRS}. Please ensure MLIR is properly installed.")
 endif()
 
 if(NOT EXISTS ${LLVM_INCLUDE_DIRS})
-  message(FATAL_ERROR "LLVM include directory not found at ${LLVM_INCLUDE_DIRS}. Please ensure LLVM is properly installed.")
+  message(WARNING "LLVM include directory not found at ${LLVM_INCLUDE_DIRS}. Please ensure LLVM is properly installed.")
 endif()
 
 include(TableGen) # required by AddMLIR

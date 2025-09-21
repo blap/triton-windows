@@ -259,13 +259,13 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -Clean
 ```
 
 **Issue**: PowerShell execution policy restrictions
-```powershell
+``powershell
 # Solution: Set execution policy
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 **Issue**: Unicode encoding errors in tests
-```powershell
+``powershell
 # Solution: All test scripts have been fixed with ASCII-only output
 # No action needed - this issue has been resolved
 ```
@@ -291,6 +291,41 @@ Key environment variables for Windows builds:
 - Ensure adequate RAM (16GB+ recommended)
 - Close unnecessary applications during build
 - Use Windows Terminal for better output display
+
+## PyTorch Version Requirements
+
+For proper NVIDIA backend functionality, you must use the correct version of PyTorch with CUDA 12.8 support:
+
+```bash
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+```
+
+Using other versions of PyTorch or standard PyTorch installations without CUDA support will result in kernel execution failures.
+
+## NVGPU Dialect Registration Issue
+
+When running Triton kernels on Windows with NVIDIA GPU support, you may encounter the following error:
+
+```
+LLVM ERROR: Dialect Attribute with name nvgpu. is already registered
+```
+
+This is a known issue with the current Windows build. To resolve it:
+
+1. Run the automatic fix script:
+   ```bash
+   python fix_nvgpu_dialect.py
+   ```
+
+2. Perform a clean rebuild:
+   ```powershell
+   Remove-Item -Path "build" -Recurse -Force -ErrorAction SilentlyContinue
+   Remove-Item -Path "dist" -Recurse -Force -ErrorAction SilentlyContinue
+   Remove-Item -Path "build_vs" -Recurse -Force -ErrorAction SilentlyContinue
+   .\build_triton.ps1 -CreateWheel
+   ```
+
+For more details, see [NVGPU_DIALECT_ISSUE.md](NVGPU_DIALECT_ISSUE.md).
 
 ## Windows Development Workflow
 

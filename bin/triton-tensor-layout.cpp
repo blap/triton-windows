@@ -187,7 +187,9 @@ int main(int argc, char **argv) {
   registerTritonDialects(registry);
 
   MLIRContext ctx(registry);
-  ctx.loadAllAvailableDialects();
+  // DO NOT call ctx.loadAllAvailableDialects() as it would try to load
+  // NVGPU dialect again, which is already registered in registerTritonDialects
+  // and would cause "LLVM ERROR: Dialect Attribute with name nvgpu. is already registered"
 
   if (TensorStr.empty()) {
     llvm::errs() << "Must specify the tensor type argument\n";

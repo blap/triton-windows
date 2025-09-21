@@ -1,7 +1,8 @@
 #pragma once
-#include "triton/Dialect/Triton/IR/Dialect.h"
-#include "triton/Dialect/TritonGPU/IR/Dialect.h"
-#include "triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
+// Fixed include paths to use relative paths from project root - Windows build compatibility
+#include "include/triton/Dialect/Triton/IR/Dialect.h"
+#include "include/triton/Dialect/TritonGPU/IR/Dialect.h"
+#include "include/triton/Dialect/TritonNvidiaGPU/IR/Dialect.h"
 // Fixed paths to reference build directory for generated files - Windows build compatibility
 #include "third_party/nvidia/include/Dialect/NVGPU/IR/Dialect.h"
 #include "third_party/nvidia/include/Dialect/NVWS/IR/Dialect.h"
@@ -12,23 +13,24 @@
 #endif
 
 
-#include "triton/Dialect/Triton/Transforms/Passes.h"
+#include "include/triton/Dialect/Triton/Transforms/Passes.h"
 // Fixed typo in include path - Windows build fix
-#include "triton/Dialect/TritonGPU/Transforms/Passes.h"
-#include "triton/Dialect/TritonNvidiaGPU/Transforms/Passes.h"
+#include "include/triton/Dialect/TritonGPU/Transforms/Passes.h"
+#include "include/triton/Dialect/TritonNvidiaGPU/Transforms/Passes.h"
 
 #include "third_party/nvidia/hopper/include/Transforms/Passes.h"
 #include "third_party/nvidia/include/Dialect/NVWS/Transforms/Passes.h"
 #include "third_party/nvidia/include/NVGPUToLLVM/Passes.h"
 #include "third_party/nvidia/include/TritonNVIDIAGPUToLLVM/Passes.h"
-#include "triton/Conversion/TritonGPUToLLVM/Passes.h"
-#include "triton/Conversion/TritonToTritonGPU/Passes.h"
-#include "triton/Target/LLVMIR/Passes.h"
+#include "include/triton/Conversion/TritonGPUToLLVM/Passes.h"
+#include "include/triton/Conversion/TritonToTritonGPU/Passes.h"
+#include "include/triton/Target/LLVMIR/Passes.h"
 
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
-#include "mlir/InitAllPasses.h"
+// Fixed MLIR include paths - Windows build compatibility
+#include "mlir/include/mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir/include/mlir/InitAllPasses.h"
 // Added for Triton dialect translation registration - Windows build enhancement
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/include/mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 
 namespace mlir {
 namespace test {

@@ -15,6 +15,9 @@ void init_triton_proton(py::module &&m) {
     mlir::DialectRegistry registry;
     registry.insert<mlir::triton::proton::ProtonDialect>();
     context.appendDialectRegistry(registry);
-    context.loadAllAvailableDialects();
+    // DO NOT call context.loadAllAvailableDialects() as it would try to load
+    // NVGPU dialect again, which is already registered in registerTritonDialects
+    // and would cause "LLVM ERROR: Dialect Attribute with name nvgpu. is already registered"
+    // context.loadAllAvailableDialects();
   });
 }

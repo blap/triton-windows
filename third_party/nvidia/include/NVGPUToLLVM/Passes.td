@@ -11,8 +11,7 @@ def ConvertNVGPUToLLVM : Pass<"convert-nv-gpu-to-llvm", "mlir::ModuleOp"> {
 
     let dependentDialects = ["mlir::arith::ArithDialect",
                              "mlir::LLVM::LLVMDialect",
-                             "mlir::NVVM::NVVMDialect",
-                             "mlir::triton::nvgpu::NVGPUDialect"];
+                             "mlir::NVVM::NVVMDialect"];
 }
 
 #endif // NVGPU_CONVERSION_PASSES

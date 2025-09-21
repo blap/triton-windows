@@ -46,8 +46,11 @@
 #  include "Dialect.h.inc"
 #endif
 
-// Include enum declarations before the ops
+// Include enum declarations before the ops with proper guards
+#ifndef NVGPU_ENUMS_ALREADY_INCLUDED
+#define NVGPU_ENUMS_ALREADY_INCLUDED
 #include "NVGPUEnums.h"
+#endif
 
 // Include attribute definitions
 #include "Attributes.h"
